@@ -25,7 +25,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yourusername/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/application/ports"
 )
 
 // Compile-time check

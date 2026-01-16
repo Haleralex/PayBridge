@@ -11,7 +11,7 @@ package ports
 import (
 	"context"
 
-	"github.com/yourusername/wallethub/internal/domain/events"
+	"github.com/Haleralex/wallethub/internal/domain/events"
 )
 
 // EventPublisher определяет контракт для публикации domain events.

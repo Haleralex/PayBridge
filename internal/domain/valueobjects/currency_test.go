@@ -4,7 +4,7 @@ package valueobjects_test
 import (
 	"testing"
 
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 )
 
 // TestNewCurrency_Success tests successful currency creation.

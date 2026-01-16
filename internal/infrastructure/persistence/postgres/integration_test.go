@@ -3,7 +3,8 @@
 // Package postgres - интеграционные тесты для PostgreSQL repositories.
 //
 // Запуск тестов:
-//   go test -tags=integration ./internal/infrastructure/persistence/postgres/...
+//
+//	go test -tags=integration ./internal/infrastructure/persistence/postgres/...
 //
 // Требования:
 //   - Запущенный PostgreSQL (docker-compose up -d)
@@ -27,9 +28,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	domainErrors "github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	domainErrors "github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 )
 
 // testPool - shared connection pool для всех тестов

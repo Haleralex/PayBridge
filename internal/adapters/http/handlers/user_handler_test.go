@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	domainerrors "github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	domainerrors "github.com/yourusername/wallethub/internal/domain/errors"
 )
 
 // ============================================

@@ -12,13 +12,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	"github.com/Haleralex/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	"github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/events"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	"github.com/yourusername/wallethub/internal/application/ports"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	"github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/events"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
 )
 
 // CreditWalletUseCase - use case для пополнения кошелька.
@@ -35,10 +35,10 @@ import (
 // Если запрос с таким же idempotency_key уже обработан,
 // возвращаем существующую транзакцию без изменений.
 type CreditWalletUseCase struct {
-	walletRepo        ports.WalletRepository
-	transactionRepo   ports.TransactionRepository
-	eventPublisher    ports.EventPublisher
-	uow               ports.UnitOfWork
+	walletRepo      ports.WalletRepository
+	transactionRepo ports.TransactionRepository
+	eventPublisher  ports.EventPublisher
+	uow             ports.UnitOfWork
 }
 
 // NewCreditWalletUseCase создаёт новый use case.

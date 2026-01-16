@@ -11,7 +11,7 @@ package dtos
 import (
 	"fmt"
 
-	"github.com/yourusername/wallethub/internal/domain/entities"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
 )
 
 // ============================================

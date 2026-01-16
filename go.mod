@@ -1,4 +1,4 @@
-module github.com/yourusername/wallethub
+module github.com/Haleralex/wallethub
 
 go 1.24.0
 

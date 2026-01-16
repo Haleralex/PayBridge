@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/google/uuid"
 )
 

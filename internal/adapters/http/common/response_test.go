@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	domainerrors "github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	domainerrors "github.com/yourusername/wallethub/internal/domain/errors"
 )
 
 func setupTestContext() (*gin.Context, *httptest.ResponseRecorder) {

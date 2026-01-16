@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
 )
 
@@ -15,12 +15,12 @@ import (
 type TransactionType string
 
 const (
-	TransactionTypeDeposit   TransactionType = "DEPOSIT"   // External deposit to wallet
-	TransactionTypeWithdraw  TransactionType = "WITHDRAW"  // Withdrawal to external account
-	TransactionTypePayout    TransactionType = "PAYOUT"    // Payout to merchant/user
-	TransactionTypeTransfer  TransactionType = "TRANSFER"  // Internal transfer between wallets
-	TransactionTypeFee       TransactionType = "FEE"       // System fee
-	TransactionTypeRefund    TransactionType = "REFUND"    // Refund of previous transaction
+	TransactionTypeDeposit    TransactionType = "DEPOSIT"    // External deposit to wallet
+	TransactionTypeWithdraw   TransactionType = "WITHDRAW"   // Withdrawal to external account
+	TransactionTypePayout     TransactionType = "PAYOUT"     // Payout to merchant/user
+	TransactionTypeTransfer   TransactionType = "TRANSFER"   // Internal transfer between wallets
+	TransactionTypeFee        TransactionType = "FEE"        // System fee
+	TransactionTypeRefund     TransactionType = "REFUND"     // Refund of previous transaction
 	TransactionTypeAdjustment TransactionType = "ADJUSTMENT" // Manual adjustment (admin)
 )
 
@@ -89,7 +89,7 @@ type Transaction struct {
 
 	// Optional fields depending on transaction type
 	destinationWalletID *uuid.UUID // For transfers
-	externalReference   string      // External system reference (e.g., Stripe payment ID)
+	externalReference   string     // External system reference (e.g., Stripe payment ID)
 	description         string
 	metadata            map[string]interface{} // Flexible metadata (JSON)
 

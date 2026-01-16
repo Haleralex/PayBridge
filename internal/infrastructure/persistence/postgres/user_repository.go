@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yourusername/wallethub/internal/application/ports"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	domainErrors "github.com/yourusername/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	domainErrors "github.com/Haleralex/wallethub/internal/domain/errors"
 )
 
 // Compile-time check: UserRepository implements ports.UserRepository
@@ -99,10 +99,10 @@ func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*entities.
 	`
 
 	var (
-		userID    uuid.UUID
-		email     string
-		fullName  string
-		kycStatus string
+		userID               uuid.UUID
+		email                string
+		fullName             string
+		kycStatus            string
 		createdAt, updatedAt time.Time
 	)
 
@@ -146,10 +146,10 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*entiti
 	`
 
 	var (
-		userID    uuid.UUID
-		userEmail string
-		fullName  string
-		kycStatus string
+		userID               uuid.UUID
+		userEmail            string
+		fullName             string
+		kycStatus            string
 		createdAt, updatedAt time.Time
 	)
 
@@ -217,10 +217,10 @@ func (r *UserRepository) List(ctx context.Context, offset, limit int) ([]*entiti
 	var users []*entities.User
 	for rows.Next() {
 		var (
-			userID    uuid.UUID
-			email     string
-			fullName  string
-			kycStatus string
+			userID               uuid.UUID
+			email                string
+			fullName             string
+			kycStatus            string
 			createdAt, updatedAt time.Time
 		)
 

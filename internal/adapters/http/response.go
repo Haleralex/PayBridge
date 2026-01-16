@@ -14,7 +14,7 @@
 package http
 
 import (
-	"github.com/yourusername/wallethub/internal/adapters/http/common"
+	"github.com/Haleralex/wallethub/internal/adapters/http/common"
 )
 
 // Re-export types from common package for convenience

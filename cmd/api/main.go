@@ -8,12 +8,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/adapters/http"
+	"github.com/Haleralex/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/application/usecases/user"
+	"github.com/Haleralex/wallethub/internal/application/usecases/wallet"
+	"github.com/Haleralex/wallethub/internal/infrastructure/persistence/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/yourusername/wallethub/internal/adapters/http"
-	"github.com/yourusername/wallethub/internal/application/ports"
-	"github.com/yourusername/wallethub/internal/application/usecases/user"
-	"github.com/yourusername/wallethub/internal/application/usecases/wallet"
-	"github.com/yourusername/wallethub/internal/infrastructure/persistence/postgres"
 )
 
 func main() {

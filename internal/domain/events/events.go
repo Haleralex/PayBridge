@@ -15,8 +15,8 @@ package events
 import (
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
 )
 
 // DomainEvent is the base interface for all domain events.
@@ -69,16 +69,16 @@ func (e BaseEvent) AggregateID() uuid.UUID {
 
 // Event Types (constants for type checking)
 const (
-	EventTypeUserCreated         = "user.created"
-	EventTypeUserKYCApproved     = "user.kyc.approved"
-	EventTypeUserKYCRejected     = "user.kyc.rejected"
-	EventTypeWalletCreated       = "wallet.created"
-	EventTypeWalletCredited      = "wallet.credited"
-	EventTypeWalletDebited       = "wallet.debited"
-	EventTypeWalletSuspended     = "wallet.suspended"
-	EventTypeTransactionCreated  = "transaction.created"
+	EventTypeUserCreated          = "user.created"
+	EventTypeUserKYCApproved      = "user.kyc.approved"
+	EventTypeUserKYCRejected      = "user.kyc.rejected"
+	EventTypeWalletCreated        = "wallet.created"
+	EventTypeWalletCredited       = "wallet.credited"
+	EventTypeWalletDebited        = "wallet.debited"
+	EventTypeWalletSuspended      = "wallet.suspended"
+	EventTypeTransactionCreated   = "transaction.created"
 	EventTypeTransactionCompleted = "transaction.completed"
-	EventTypeTransactionFailed   = "transaction.failed"
+	EventTypeTransactionFailed    = "transaction.failed"
 )
 
 // ===== User Events =====
