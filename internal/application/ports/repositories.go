@@ -12,9 +12,9 @@ package ports
 import (
 	"context"
 
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
 )
 
 // UserRepository определяет контракт для хранения пользователей.
@@ -75,9 +75,9 @@ type WalletRepository interface {
 
 // WalletFilter определяет критерии фильтрации для кошельков.
 type WalletFilter struct {
-	UserID   *uuid.UUID                // Фильтр по пользователю
-	Currency *valueobjects.Currency    // Фильтр по валюте
-	Status   *entities.WalletStatus    // Фильтр по статусу
+	UserID   *uuid.UUID             // Фильтр по пользователю
+	Currency *valueobjects.Currency // Фильтр по валюте
+	Status   *entities.WalletStatus // Фильтр по статусу
 }
 
 // TransactionRepository определяет контракт для хранения транзакций.
@@ -109,8 +109,8 @@ type TransactionRepository interface {
 
 // TransactionFilter определяет критерии фильтрации для транзакций.
 type TransactionFilter struct {
-	WalletID *uuid.UUID                     // Фильтр по кошельку
-	UserID   *uuid.UUID                     // Фильтр по пользователю (join через wallet)
-	Type     *entities.TransactionType      // Фильтр по типу
-	Status   *entities.TransactionStatus    // Фильтр по статусу
+	WalletID *uuid.UUID                  // Фильтр по кошельку
+	UserID   *uuid.UUID                  // Фильтр по пользователю (join через wallet)
+	Type     *entities.TransactionType   // Фильтр по типу
+	Status   *entities.TransactionStatus // Фильтр по статусу
 }

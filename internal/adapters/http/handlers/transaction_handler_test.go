@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	domerrors "github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	domerrors "github.com/yourusername/wallethub/internal/domain/errors"
 )
 
 // ============================================

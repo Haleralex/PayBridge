@@ -52,7 +52,7 @@ go test -tags=integration -coverprofile=coverage.out ./...
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/paybridge.git
+git clone https://github.com/Haleralex/paybridge.git
 cd paybridge
 
 # Start PostgreSQL
@@ -169,4 +169,4 @@ This project is licensed under the MIT License.
 
 - API Documentation: `/api/docs`
 - OpenAPI Spec: `api/openapi.yaml`
-- GitHub: https://github.com/yourusername/paybridge
+- GitHub: https://github.com/Haleralex/paybridge

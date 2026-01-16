@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	domainErrors "github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	domainErrors "github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
 )
 
 // TestTransferBetweenWalletsUseCase_Success тестирует успешный трансфер между кошельками

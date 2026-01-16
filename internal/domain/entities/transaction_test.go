@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
 )
 
 // TestTransactionType_IsValid tests transaction type validation

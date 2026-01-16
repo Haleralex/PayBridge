@@ -12,7 +12,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 )
 
 // TestNewMoney_Success tests successful money creation.

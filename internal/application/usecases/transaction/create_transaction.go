@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	"github.com/Haleralex/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	"github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/events"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	"github.com/yourusername/wallethub/internal/application/ports"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	"github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/events"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
 )
 
 // CreateTransactionUseCase - use case для создания транзакции.

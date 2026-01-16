@@ -11,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yourusername/wallethub/internal/application/ports"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	domainErrors "github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	domainErrors "github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 )
 
 // Compile-time check
@@ -270,12 +270,12 @@ func (r *WalletRepository) List(ctx context.Context, filter ports.WalletFilter, 
 // scanWallet сканирует одну строку в Wallet entity.
 func (r *WalletRepository) scanWallet(row pgx.Row) (*entities.Wallet, error) {
 	var (
-		id, userID                                 uuid.UUID
-		currencyCode, walletTypeStr, statusStr     string
-		availableBalance, pendingBalance           int64
-		balanceVersion                             int64
-		dailyLimitCents, monthlyLimitCents         int64
-		createdAt, updatedAt                       time.Time
+		id, userID                             uuid.UUID
+		currencyCode, walletTypeStr, statusStr string
+		availableBalance, pendingBalance       int64
+		balanceVersion                         int64
+		dailyLimitCents, monthlyLimitCents     int64
+		createdAt, updatedAt                   time.Time
 	)
 
 	err := row.Scan(
@@ -352,12 +352,12 @@ func (r *WalletRepository) scanWallets(rows pgx.Rows) ([]*entities.Wallet, error
 
 	for rows.Next() {
 		var (
-			id, userID                                 uuid.UUID
-			currencyCode, walletTypeStr, statusStr     string
-			availableBalance, pendingBalance           int64
-			balanceVersion                             int64
-			dailyLimitCents, monthlyLimitCents         int64
-			createdAt, updatedAt                       time.Time
+			id, userID                             uuid.UUID
+			currencyCode, walletTypeStr, statusStr string
+			availableBalance, pendingBalance       int64
+			balanceVersion                         int64
+			dailyLimitCents, monthlyLimitCents     int64
+			createdAt, updatedAt                   time.Time
 		)
 
 		err := rows.Scan(

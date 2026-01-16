@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	"github.com/yourusername/wallethub/internal/domain/events"
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	"github.com/Haleralex/wallethub/internal/domain/events"
 )
 
 // ============================================

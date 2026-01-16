@@ -41,11 +41,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	domainErrors "github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
-	"github.com/yourusername/wallethub/internal/infrastructure/persistence/postgres"
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	domainErrors "github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/infrastructure/persistence/postgres"
 )
 
 // testPool - shared connection pool для всех integration тестов

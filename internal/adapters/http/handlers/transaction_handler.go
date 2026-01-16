@@ -5,10 +5,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/Haleralex/wallethub/internal/adapters/http/common"
+	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/adapters/http/common"
-	"github.com/yourusername/wallethub/internal/application/dtos"
 )
 
 // ============================================

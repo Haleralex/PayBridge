@@ -5,8 +5,8 @@ package entities_test
 import (
 	"testing"
 
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	"github.com/yourusername/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	"github.com/Haleralex/wallethub/internal/domain/errors"
 )
 
 // TestNewUser_Success tests successful user creation.

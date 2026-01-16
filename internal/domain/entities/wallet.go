@@ -5,8 +5,8 @@ package entities
 import (
 	"time"
 
-	"github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
 )
 
@@ -57,15 +57,15 @@ func (s WalletStatus) IsValid() bool {
 // - OCP: Can add new wallet types without modifying existing code
 // - LSP: All wallets follow the same contract
 type Wallet struct {
-	id        uuid.UUID
-	userID    uuid.UUID // Foreign key to User (aggregate boundary)
-	currency  valueobjects.Currency
+	id         uuid.UUID
+	userID     uuid.UUID // Foreign key to User (aggregate boundary)
+	currency   valueobjects.Currency
 	walletType WalletType
-	status    WalletStatus
+	status     WalletStatus
 
 	// Balance tracking (embedded aggregate)
 	// In a real system, this might be a separate entity with optimistic locking
-	balance   Balance
+	balance Balance
 
 	// Transaction limits (business rules)
 	dailyLimit   valueobjects.Money // Max daily transaction volume

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	domainerrors "github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/gin-gonic/gin"
-	domainerrors "github.com/yourusername/wallethub/internal/domain/errors"
 )
 
 // ============================================

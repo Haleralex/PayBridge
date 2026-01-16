@@ -11,11 +11,11 @@ package http
 import (
 	"log/slog"
 
+	"github.com/Haleralex/wallethub/internal/adapters/http/common"
+	"github.com/Haleralex/wallethub/internal/adapters/http/handlers"
+	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/yourusername/wallethub/internal/adapters/http/common"
-	"github.com/yourusername/wallethub/internal/adapters/http/handlers"
-	"github.com/yourusername/wallethub/internal/adapters/http/middleware"
 )
 
 // ============================================

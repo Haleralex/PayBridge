@@ -5,10 +5,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/Haleralex/wallethub/internal/adapters/http/common"
+	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/adapters/http/common"
-	"github.com/yourusername/wallethub/internal/application/dtos"
 )
 
 // ============================================
@@ -45,10 +45,10 @@ type ListUsersUseCase interface {
 // - Преобразует HTTP запросы в Use Case вызовы
 // - Преобразует результаты в HTTP ответы
 type UserHandler struct {
-	createUser  CreateUserUseCase
-	approveKYC  ApproveKYCUseCase
-	getUser     GetUserUseCase
-	listUsers   ListUsersUseCase
+	createUser CreateUserUseCase
+	approveKYC ApproveKYCUseCase
+	getUser    GetUserUseCase
+	listUsers  ListUsersUseCase
 }
 
 // NewUserHandler создаёт новый UserHandler.
@@ -63,10 +63,10 @@ func NewUserHandler(
 	listUsers ListUsersUseCase,
 ) *UserHandler {
 	return &UserHandler{
-		createUser:  createUser,
-		approveKYC:  approveKYC,
-		getUser:     getUser,
-		listUsers:   listUsers,
+		createUser: createUser,
+		approveKYC: approveKYC,
+		getUser:    getUser,
+		listUsers:  listUsers,
 	}
 }
 

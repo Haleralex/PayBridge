@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yourusername/wallethub/internal/application/ports"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	domainErrors "github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
+	"github.com/Haleralex/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	domainErrors "github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 )
 
 // Compile-time check
@@ -282,17 +282,17 @@ func (r *TransactionRepository) List(ctx context.Context, filter ports.Transacti
 // scanTransaction сканирует одну строку в Transaction entity.
 func (r *TransactionRepository) scanTransaction(row pgx.Row) (*entities.Transaction, error) {
 	var (
-		id, walletID                             uuid.UUID
-		idempotencyKey, txTypeStr, statusStr     string
-		amountCents                              int64
-		currencyCode                             string
-		destinationWalletID                      *uuid.UUID
-		externalReference, description           *string
-		metadataJSON                             []byte
-		failureReason                            *string
-		retryCount                               int
-		createdAt, updatedAt                     time.Time
-		processedAt, completedAt                 *time.Time
+		id, walletID                         uuid.UUID
+		idempotencyKey, txTypeStr, statusStr string
+		amountCents                          int64
+		currencyCode                         string
+		destinationWalletID                  *uuid.UUID
+		externalReference, description       *string
+		metadataJSON                         []byte
+		failureReason                        *string
+		retryCount                           int
+		createdAt, updatedAt                 time.Time
+		processedAt, completedAt             *time.Time
 	)
 
 	err := row.Scan(
@@ -382,17 +382,17 @@ func (r *TransactionRepository) scanTransactions(rows pgx.Rows) ([]*entities.Tra
 
 	for rows.Next() {
 		var (
-			id, walletID                             uuid.UUID
-			idempotencyKey, txTypeStr, statusStr     string
-			amountCents                              int64
-			currencyCode                             string
-			destinationWalletID                      *uuid.UUID
-			externalReference, description           *string
-			metadataJSON                             []byte
-			failureReason                            *string
-			retryCount                               int
-			createdAt, updatedAt                     time.Time
-			processedAt, completedAt                 *time.Time
+			id, walletID                         uuid.UUID
+			idempotencyKey, txTypeStr, statusStr string
+			amountCents                          int64
+			currencyCode                         string
+			destinationWalletID                  *uuid.UUID
+			externalReference, description       *string
+			metadataJSON                         []byte
+			failureReason                        *string
+			retryCount                           int
+			createdAt, updatedAt                 time.Time
+			processedAt, completedAt             *time.Time
 		)
 
 		err := rows.Scan(

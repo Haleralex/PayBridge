@@ -17,10 +17,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Haleralex/wallethub/internal/adapters/http/common"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
-	"github.com/yourusername/wallethub/internal/adapters/http/common"
 )
 
 // ============================================

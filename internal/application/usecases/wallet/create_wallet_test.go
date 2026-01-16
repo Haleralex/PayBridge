@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/application/dtos"
+	"github.com/Haleralex/wallethub/internal/application/ports"
+	"github.com/Haleralex/wallethub/internal/domain/entities"
+	domainErrors "github.com/Haleralex/wallethub/internal/domain/errors"
+	"github.com/Haleralex/wallethub/internal/domain/events"
+	"github.com/Haleralex/wallethub/internal/domain/valueobjects"
 	"github.com/google/uuid"
-	"github.com/yourusername/wallethub/internal/application/dtos"
-	"github.com/yourusername/wallethub/internal/application/ports"
-	"github.com/yourusername/wallethub/internal/domain/entities"
-	domainErrors "github.com/yourusername/wallethub/internal/domain/errors"
-	"github.com/yourusername/wallethub/internal/domain/events"
-	"github.com/yourusername/wallethub/internal/domain/valueobjects"
 )
 
 // Mock repositories and services
