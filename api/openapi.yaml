@@ -1,0 +1,1033 @@
+openapi: 3.0.3
+info:
+  title: WalletHub API
+  description: |
+    WalletHub - платёжный шлюз для управления кошельками и транзакциями.
+
+    ## Основные возможности
+    - Управление пользователями и KYC верификация
+    - Создание и управление мультивалютными кошельками (Fiat + Crypto)
+    - Проведение финансовых операций (deposit, withdraw, transfer)
+    - Полная история транзакций
+
+    ## Аутентификация
+    API использует Bearer Token аутентификацию. Передайте токен в заголовке:
+    ```
+    Authorization: Bearer <your-token>
+    ```
+
+    ## Идемпотентность
+    Все финансовые операции поддерживают идемпотентность через `idempotency_key`.
+    При повторном запросе с тем же ключом вернётся результат первой операции.
+
+    ## Rate Limiting
+    - Общий лимит: 100 запросов/минуту
+    - Финансовые операции: 30 запросов/минуту
+
+    Заголовки ответа:
+    - `X-RateLimit-Limit`: Максимум запросов
+    - `X-RateLimit-Remaining`: Оставшееся количество
+    - `X-RateLimit-Reset`: Unix timestamp сброса
+
+    ## Формат ответа
+    Все ответы имеют единый формат:
+    ```json
+    {
+      "success": true/false,
+      "data": { ... },
+      "error": { "code": "...", "message": "..." },
+      "meta": { "page": 1, "total": 100 },
+      "request_id": "uuid",
+      "timestamp": "2024-01-01T00:00:00Z"
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: WalletHub Support
+    email: support@wallethub.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.wallethub.example.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Users
+    description: User management and KYC
+  - name: Wallets
+    description: Wallet operations
+  - name: Transactions
+    description: Transaction management
+
+paths:
+  # ============================================
+  # Health Checks
+  # ============================================
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Basic health check endpoint (liveness probe)
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: Readiness check
+      description: Readiness probe - checks all dependencies
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+
+  # ============================================
+  # Users
+  # ============================================
+  /api/v1/users:
+    post:
+      tags: [Users]
+      summary: Create user
+      description: Create a new user with email and full name
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreatedResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+    get:
+      tags: [Users]
+      summary: List users
+      description: Get paginated list of users
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      description: Get user details by UUID
+      operationId: getUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/users/{id}/kyc:
+    post:
+      tags: [Users]
+      summary: Approve/Reject KYC
+      description: Approve or reject user's KYC verification
+      operationId: approveKYC
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveKYCRequest'
+      responses:
+        '200':
+          description: KYC status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+
+  # ============================================
+  # Wallets
+  # ============================================
+  /api/v1/wallets:
+    post:
+      tags: [Wallets]
+      summary: Create wallet
+      description: Create a new wallet for a user with specified currency
+      operationId: createWallet
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWalletRequest'
+      responses:
+        '201':
+          description: Wallet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+
+    get:
+      tags: [Wallets]
+      summary: List wallets
+      description: Get paginated list of wallets with optional filters
+      operationId: listWallets
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: currency_code
+          in: query
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 3
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/WalletStatus'
+      responses:
+        '200':
+          description: List of wallets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletListResponse'
+
+  /api/v1/wallets/{id}:
+    get:
+      tags: [Wallets]
+      summary: Get wallet by ID
+      description: Get wallet details by UUID
+      operationId: getWallet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Wallet details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/wallets/{id}/credit:
+    post:
+      tags: [Wallets]
+      summary: Credit wallet (deposit)
+      description: Add funds to a wallet
+      operationId: creditWallet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditWalletRequest'
+      responses:
+        '200':
+          description: Wallet credited successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletOperationResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConcurrencyError'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+
+  /api/v1/wallets/{id}/debit:
+    post:
+      tags: [Wallets]
+      summary: Debit wallet (withdraw)
+      description: Remove funds from a wallet
+      operationId: debitWallet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebitWalletRequest'
+      responses:
+        '200':
+          description: Wallet debited successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletOperationResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          description: Insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/wallets/{id}/transfer:
+    post:
+      tags: [Wallets]
+      summary: Transfer funds
+      description: Transfer funds from source wallet to destination wallet
+      operationId: transferFunds
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Source wallet ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferFundsRequest'
+      responses:
+        '200':
+          description: Transfer completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResultResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+
+  # ============================================
+  # Transactions
+  # ============================================
+  /api/v1/transactions:
+    get:
+      tags: [Transactions]
+      summary: List transactions
+      description: Get paginated list of transactions with optional filters
+      operationId: listTransactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: wallet_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/TransactionType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TransactionStatus'
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionListResponse'
+
+  /api/v1/transactions/{id}:
+    get:
+      tags: [Transactions]
+      summary: Get transaction by ID
+      description: Get transaction details by UUID
+      operationId: getTransaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPageParam:
+      name: per_page
+      in: query
+      description: Items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ConflictError:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BusinessRuleError:
+      description: Business rule violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ConcurrencyError:
+      description: Concurrency error (retry needed)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # ============================================
+    # Common Schemas
+    # ============================================
+    ApiMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [success, error, request_id, timestamp]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          $ref: '#/components/schemas/ApiError'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    ValidationErrorResponse:
+      type: object
+      required: [success, error, request_id, timestamp]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+            fields:
+              type: array
+              items:
+                $ref: '#/components/schemas/FieldError'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: NOT_FOUND
+        message:
+          type: string
+        details:
+          type: object
+
+    FieldError:
+      type: object
+      required: [field, message, code]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+    # ============================================
+    # Health Schemas
+    # ============================================
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        version:
+          type: string
+        build_time:
+          type: string
+        uptime:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ReadinessResponse:
+      type: object
+      properties:
+        ready:
+          type: boolean
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # ============================================
+    # User Schemas
+    # ============================================
+    CreateUserRequest:
+      type: object
+      required: [email, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: John Doe
+
+    ApproveKYCRequest:
+      type: object
+      required: [approved]
+      properties:
+        approved:
+          type: boolean
+        reason:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        kyc_status:
+          $ref: '#/components/schemas/KYCStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    KYCStatus:
+      type: string
+      enum: [UNVERIFIED, PENDING, VERIFIED, REJECTED]
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/User'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    UserCreatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            message:
+              type: string
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    UserListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            users:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+            total_count:
+              type: integer
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    # ============================================
+    # Wallet Schemas
+    # ============================================
+    CreateWalletRequest:
+      type: object
+      required: [user_id, currency_code]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: USD
+
+    CreditWalletRequest:
+      type: object
+      required: [amount, idempotency_key, description]
+      properties:
+        amount:
+          type: string
+          pattern: '^\d+(\.\d{1,8})?$'
+          example: "100.50"
+        idempotency_key:
+          type: string
+          format: uuid
+        description:
+          type: string
+          maxLength: 500
+        external_reference:
+          type: string
+
+    DebitWalletRequest:
+      type: object
+      required: [amount, idempotency_key, description]
+      properties:
+        amount:
+          type: string
+          pattern: '^\d+(\.\d{1,8})?$'
+        idempotency_key:
+          type: string
+          format: uuid
+        description:
+          type: string
+          maxLength: 500
+        external_reference:
+          type: string
+
+    TransferFundsRequest:
+      type: object
+      required: [destination_wallet_id, amount, idempotency_key, description]
+      properties:
+        destination_wallet_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          pattern: '^\d+(\.\d{1,8})?$'
+        idempotency_key:
+          type: string
+          format: uuid
+        description:
+          type: string
+          maxLength: 500
+
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        currency_code:
+          type: string
+        wallet_type:
+          type: string
+          enum: [FIAT, CRYPTO]
+        status:
+          $ref: '#/components/schemas/WalletStatus'
+        available_balance:
+          type: string
+        pending_balance:
+          type: string
+        total_balance:
+          type: string
+        daily_limit:
+          type: string
+        monthly_limit:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WalletStatus:
+      type: string
+      enum: [ACTIVE, SUSPENDED, LOCKED, CLOSED]
+
+    WalletResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Wallet'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    WalletListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            wallets:
+              type: array
+              items:
+                $ref: '#/components/schemas/Wallet'
+            total_count:
+              type: integer
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    WalletOperationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            wallet:
+              $ref: '#/components/schemas/Wallet'
+            transaction_id:
+              type: string
+              format: uuid
+            message:
+              type: string
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    TransferResultResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            source_wallet:
+              $ref: '#/components/schemas/Wallet'
+            destination_wallet:
+              $ref: '#/components/schemas/Wallet'
+            transaction_id:
+              type: string
+              format: uuid
+            amount:
+              type: string
+            status:
+              type: string
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    # ============================================
+    # Transaction Schemas
+    # ============================================
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        wallet_id:
+          type: string
+          format: uuid
+        idempotency_key:
+          type: string
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        status:
+          $ref: '#/components/schemas/TransactionStatus'
+        amount:
+          type: string
+        currency_code:
+          type: string
+        destination_wallet_id:
+          type: string
+          format: uuid
+          nullable: true
+        external_reference:
+          type: string
+        description:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        failure_reason:
+          type: string
+        retry_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        processed_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    TransactionType:
+      type: string
+      enum: [DEPOSIT, WITHDRAW, PAYOUT, TRANSFER, FEE, REFUND, ADJUSTMENT]
+
+    TransactionStatus:
+      type: string
+      enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED]
+
+    TransactionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Transaction'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    TransactionListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            transactions:
+              type: array
+              items:
+                $ref: '#/components/schemas/Transaction'
+            total_count:
+              type: integer
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
