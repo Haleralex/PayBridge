@@ -1,3 +1,5 @@
+//go:build integration
+
 // Package transaction - интеграционные тесты для Transaction UseCases.
 //
 // ЗАПУСК ТЕСТОВ:
