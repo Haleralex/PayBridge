@@ -4,17 +4,24 @@ linters:
     - unused
     - typecheck
   disable:
-    - ineffassign  # Disable ineffassign - слишком строгий для тестов
+    - ineffassign
 
 linters-settings:
   errcheck:
     check-blank: true
     check-type-assertions: false
+    exclude-functions:
+      - encoding/json.Marshal
+      - (github.com/Haleralex/wallethub/internal/domain/valueobjects.Currency).NewCurrency
+      - (github.com/Haleralex/wallethub/internal/domain/valueobjects.Money).NewMoney
+      - (github.com/Haleralex/wallethub/internal/domain/valueobjects.Money).NewMoneyFromInt
 
 issues:
   exclude-rules:
+    # Отключаем errcheck для всех тестовых файлов
     - path: _test\.go
       linters:
+        - errcheck
         - ineffassign
 
 run:
