@@ -1,5 +1,4 @@
 // Package transaction - helper functions for testing
-//go:build integration || !integration
 
 package transaction
 
