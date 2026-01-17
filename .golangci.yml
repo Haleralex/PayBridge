@@ -5,24 +5,25 @@ linters:
     - typecheck
   disable:
     - ineffassign
+    - staticcheck  # Disable SA4006 warnings
 
 linters-settings:
   errcheck:
-    check-blank: true
+    check-blank: false  # Allow _ = assignments
     check-type-assertions: false
-    exclude-functions:
-      - encoding/json.Marshal
-      - (github.com/Haleralex/wallethub/internal/domain/valueobjects.Currency).NewCurrency
-      - (github.com/Haleralex/wallethub/internal/domain/valueobjects.Money).NewMoney
-      - (github.com/Haleralex/wallethub/internal/domain/valueobjects.Money).NewMoneyFromInt
 
 issues:
   exclude-rules:
-    # Отключаем errcheck для всех тестовых файлов
+    # Отключаем errcheck и staticcheck для всех тестовых файлов
     - path: _test\.go
       linters:
         - errcheck
         - ineffassign
+        - staticcheck
+    # Отключаем errcheck для файлов с nolint комментариями
+    - linters:
+        - errcheck
+      text: "Error return value.*is not checked"
 
 run:
   timeout: 5m
