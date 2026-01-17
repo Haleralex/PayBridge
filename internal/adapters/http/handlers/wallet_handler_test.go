@@ -141,7 +141,7 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, w.Code)
 
 		var response map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 		assert.True(t, response["success"].(bool))
 		assert.NotNil(t, response["data"])
 	})
@@ -305,7 +305,7 @@ func TestWalletHandler_ListWallets(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NotNil(t, response["meta"])
 	})
 

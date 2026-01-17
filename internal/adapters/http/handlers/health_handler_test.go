@@ -476,14 +476,6 @@ func BenchmarkHealthHandler_Live(b *testing.B) {
 // Helper to test error scenarios
 // ============================================
 
-type mockPoolWithError struct {
-	pingErr error
-}
-
-func (m *mockPoolWithError) Ping(ctx context.Context) error {
-	return m.pingErr
-}
-
 func TestHealthHandler_DatabaseErrors(t *testing.T) {
 	t.Run("PingTimeout", func(t *testing.T) {
 		// Test that ping timeout is handled gracefully

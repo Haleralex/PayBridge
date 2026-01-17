@@ -94,16 +94,6 @@ func isSerializationFailure(err error) bool {
 	return isPgError(err, pgSerializationFailure) || isPgError(err, pgDeadlockDetected)
 }
 
-// isNotNullViolation проверяет нарушение NOT NULL constraint.
-func isNotNullViolation(err error) bool {
-	return isPgError(err, pgNotNullViolation)
-}
-
-// isCheckViolation проверяет нарушение CHECK constraint.
-func isCheckViolation(err error) bool {
-	return isPgError(err, pgCheckViolation)
-}
-
 // isRetryableError проверяет, можно ли повторить операцию.
 // Retryable: deadlock, serialization failure, connection errors.
 func isRetryableError(err error) bool {

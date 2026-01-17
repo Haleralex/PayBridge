@@ -44,19 +44,6 @@ func (r *OutboxRepository) getQuerier(ctx context.Context) querier {
 	return r.pool
 }
 
-// outboxEntry представляет запись в таблице outbox.
-type outboxEntry struct {
-	ID            uuid.UUID
-	AggregateType string
-	AggregateID   uuid.UUID
-	EventType     string
-	EventVersion  int
-	Payload       []byte
-	Status        string
-	PartitionKey  string
-	CreatedAt     time.Time
-}
-
 // Save сохраняет событие в outbox таблицу.
 // Должно выполняться в той же транзакции, что и бизнес-операция!
 func (r *OutboxRepository) Save(ctx context.Context, event events.DomainEvent) error {

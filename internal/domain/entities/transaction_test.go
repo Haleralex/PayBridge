@@ -432,9 +432,9 @@ func TestTransaction_AddMetadata(t *testing.T) {
 	t.Run("Add multiple metadata fields", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
 
-		tx.AddMetadata("userId", "user-123")
-		tx.AddMetadata("source", "app")
-		tx.AddMetadata("version", 1)
+		_ = tx.AddMetadata("userId", "user-123")
+		_ = tx.AddMetadata("source", "app")
+		_ = tx.AddMetadata("version", 1)
 
 		if len(tx.Metadata()) != 3 {
 			t.Errorf("Metadata count = %v, want 3", len(tx.Metadata()))
@@ -492,7 +492,7 @@ func TestTransaction_MarkCompleted(t *testing.T) {
 
 	t.Run("Mark processing transaction as completed", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
-		tx.StartProcessing()
+		_ = tx.StartProcessing()
 
 		err := tx.MarkCompleted()
 		if err != nil {
@@ -547,7 +547,7 @@ func TestTransaction_MarkFailed(t *testing.T) {
 
 	t.Run("Mark processing transaction as failed", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
-		tx.StartProcessing()
+		_ = tx.StartProcessing()
 
 		err := tx.MarkFailed("Error occurred")
 		if err != nil {
@@ -561,8 +561,8 @@ func TestTransaction_MarkFailed(t *testing.T) {
 
 	t.Run("Cannot fail already final transaction", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
-		tx.StartProcessing()
-		tx.MarkCompleted()
+		_ = tx.StartProcessing()
+		_ = tx.MarkCompleted()
 
 		err := tx.MarkFailed("Reason")
 		if err == nil {
@@ -595,7 +595,7 @@ func TestTransaction_Cancel(t *testing.T) {
 
 	t.Run("Cannot cancel processing transaction", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
-		tx.StartProcessing()
+		_ = tx.StartProcessing()
 
 		err := tx.Cancel()
 		if err == nil {
@@ -605,8 +605,8 @@ func TestTransaction_Cancel(t *testing.T) {
 
 	t.Run("Cannot cancel completed transaction", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
-		tx.StartProcessing()
-		tx.MarkCompleted()
+		_ = tx.StartProcessing()
+		_ = tx.MarkCompleted()
 
 		err := tx.Cancel()
 		if err == nil {
@@ -623,8 +623,8 @@ func TestTransaction_Retry(t *testing.T) {
 
 	t.Run("Retry failed transaction", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
-		tx.StartProcessing()
-		tx.MarkFailed("Network error")
+		_ = tx.StartProcessing()
+		_ = tx.MarkFailed("Network error")
 
 		err := tx.Retry(maxRetries)
 		if err != nil {
@@ -671,17 +671,17 @@ func TestTransaction_Retry(t *testing.T) {
 	t.Run("Multiple retries increment count", func(t *testing.T) {
 		tx, _ := NewTransaction(walletID, "key-123", TransactionTypeDeposit, amount, "Deposit")
 
-		tx.StartProcessing()
-		tx.MarkFailed("Error 1")
-		tx.Retry(maxRetries)
+		_ = tx.StartProcessing()
+		_ = tx.MarkFailed("Error 1")
+		_ = tx.Retry(maxRetries)
 
 		if tx.RetryCount() != 1 {
 			t.Errorf("RetryCount = %v, want 1", tx.RetryCount())
 		}
 
-		tx.StartProcessing()
-		tx.MarkFailed("Error 2")
-		tx.Retry(maxRetries)
+		_ = tx.StartProcessing()
+		_ = tx.MarkFailed("Error 2")
+		_ = tx.Retry(maxRetries)
 
 		if tx.RetryCount() != 2 {
 			t.Errorf("RetryCount = %v, want 2", tx.RetryCount())
@@ -856,7 +856,7 @@ func TestTransaction_UpdatedAtChanges(t *testing.T) {
 	initialUpdatedAt := tx.UpdatedAt()
 	time.Sleep(10 * time.Millisecond)
 
-	tx.AddMetadata("test", "value")
+	_ = tx.AddMetadata("test", "value")
 
 	if !tx.UpdatedAt().After(initialUpdatedAt) {
 		t.Error("UpdatedAt should change after metadata addition")
@@ -879,7 +879,7 @@ func TestTransaction_FullLifecycle(t *testing.T) {
 	}
 
 	// Add metadata before processing
-	tx.AddMetadata("source", "app")
+	_ = tx.AddMetadata("source", "app")
 
 	// Start processing
 	err = tx.StartProcessing()
