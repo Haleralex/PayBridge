@@ -30,8 +30,8 @@ type RateLimitConfig struct {
 // DefaultRateLimitConfig - конфигурация по умолчанию.
 func DefaultRateLimitConfig() *RateLimitConfig {
 	return &RateLimitConfig{
-		Limit:  100,                          // 100 запросов
-		Window: time.Minute,                  // в минуту
+		Limit:  100,         // 100 запросов
+		Window: time.Minute, // в минуту
 		KeyFunc: func(c *gin.Context) string { // по IP
 			return c.ClientIP()
 		},
@@ -208,8 +208,8 @@ func itoa(i int) string {
 // SensitiveEndpointRateLimit - более строгий лимит для sensitive endpoints.
 func SensitiveEndpointRateLimit() gin.HandlerFunc {
 	return RateLimit(&RateLimitConfig{
-		Limit:  10,           // 10 запросов
-		Window: time.Minute,  // в минуту
+		Limit:  10,          // 10 запросов
+		Window: time.Minute, // в минуту
 		KeyFunc: func(c *gin.Context) string {
 			// Комбинируем IP + endpoint
 			return c.ClientIP() + ":" + c.Request.URL.Path

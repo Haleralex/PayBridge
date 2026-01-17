@@ -46,12 +46,12 @@ func NewHealthHandler(pool *pgxpool.Pool, version, buildTime string) *HealthHand
 
 // HealthResponse - ответ health check.
 type HealthResponse struct {
-	Status    string            `json:"status"`              // "healthy", "unhealthy", "degraded"
-	Version   string            `json:"version"`             // Версия приложения
-	BuildTime string            `json:"build_time"`          // Время сборки
-	Uptime    string            `json:"uptime"`              // Время работы
-	Timestamp time.Time         `json:"timestamp"`           // Текущее время
-	Checks    map[string]string `json:"checks,omitempty"`    // Детали проверок
+	Status    string            `json:"status"`           // "healthy", "unhealthy", "degraded"
+	Version   string            `json:"version"`          // Версия приложения
+	BuildTime string            `json:"build_time"`       // Время сборки
+	Uptime    string            `json:"uptime"`           // Время работы
+	Timestamp time.Time         `json:"timestamp"`        // Текущее время
+	Checks    map[string]string `json:"checks,omitempty"` // Детали проверок
 }
 
 // ReadinessResponse - ответ readiness check.

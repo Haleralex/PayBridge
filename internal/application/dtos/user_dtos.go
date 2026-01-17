@@ -45,7 +45,7 @@ type ApproveKYCCommand struct {
 // UpdateUserCommand - команда для обновления данных пользователя.
 type UpdateUserCommand struct {
 	UserID   string  `json:"user_id" validate:"required,uuid"`
-	Email    *string `json:"email,omitempty" validate:"omitempty,email"`    // nil = не изменять
+	Email    *string `json:"email,omitempty" validate:"omitempty,email"`     // nil = не изменять
 	FullName *string `json:"full_name,omitempty" validate:"omitempty,min=2"` // nil = не изменять
 }
 

@@ -23,11 +23,11 @@ type Currency struct {
 
 // Predefined supported currencies (can be extended)
 var (
-	USD = Currency{code: "USD"}
-	EUR = Currency{code: "EUR"}
-	GBP = Currency{code: "GBP"}
-	BTC = Currency{code: "BTC"} // Crypto support
-	ETH = Currency{code: "ETH"}
+	USD  = Currency{code: "USD"}
+	EUR  = Currency{code: "EUR"}
+	GBP  = Currency{code: "GBP"}
+	BTC  = Currency{code: "BTC"} // Crypto support
+	ETH  = Currency{code: "ETH"}
 	USDT = Currency{code: "USDT"}
 )
 
@@ -55,10 +55,11 @@ var ErrInvalidCurrency = errors.New("invalid currency code")
 //   - error: ErrInvalidCurrency if code is not supported
 //
 // Example:
-//   curr, err := NewCurrency("USD")
-//   if err != nil {
-//       // handle error
-//   }
+//
+//	curr, err := NewCurrency("USD")
+//	if err != nil {
+//	    // handle error
+//	}
 func NewCurrency(code string) (Currency, error) {
 	// Normalize to uppercase for case-insensitive comparison
 	code = strings.ToUpper(strings.TrimSpace(code))

@@ -50,7 +50,8 @@ var (
 //   - Amount cannot be parsed
 //
 // Example:
-//   money, err := NewMoney("100.50", USD)
+//
+//	money, err := NewMoney("100.50", USD)
 func NewMoney(amountStr string, currency Currency) (Money, error) {
 	// Parse string to big.Rat
 	amount := new(big.Rat)
@@ -86,8 +87,9 @@ func NewMoneyFromInt(amount int64, currency Currency) (Money, error) {
 // This is the preferred way to store money in databases (as integer cents).
 //
 // Example:
-//   NewMoneyFromCents(10050, USD) // $100.50
-//   NewMoneyFromCents(100000000, BTC) // 1 BTC (100M satoshis)
+//
+//	NewMoneyFromCents(10050, USD) // $100.50
+//	NewMoneyFromCents(100000000, BTC) // 1 BTC (100M satoshis)
 func NewMoneyFromCents(cents int64, currency Currency) (Money, error) {
 	if cents < 0 {
 		return Money{}, ErrNegativeAmount

@@ -16,7 +16,7 @@ type CreateWalletCommand struct {
 // CreditWalletCommand - команда для пополнения кошелька.
 type CreditWalletCommand struct {
 	WalletID          string `json:"wallet_id" validate:"required,uuid"`
-	Amount            string `json:"amount" validate:"required"`         // Decimal string: "100.50"
+	Amount            string `json:"amount" validate:"required"` // Decimal string: "100.50"
 	IdempotencyKey    string `json:"idempotency_key" validate:"required,uuid"`
 	Description       string `json:"description" validate:"required"`
 	ExternalReference string `json:"external_reference,omitempty"` // Например, Stripe payment_intent_id
