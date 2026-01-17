@@ -59,7 +59,7 @@ func TestSuccess(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.True(t, response.Success)
 	assert.NotNil(t, response.Data)
@@ -83,7 +83,7 @@ func TestSuccessWithMeta(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.True(t, response.Success)
 	assert.NotNil(t, response.Meta)
@@ -108,7 +108,7 @@ func TestError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.False(t, response.Success)
 	assert.NotNil(t, response.Error)
@@ -128,7 +128,7 @@ func TestValidationErrorResponse(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.False(t, response.Success)
 	assert.Equal(t, ErrCodeValidation, response.Error.Code)
@@ -143,7 +143,7 @@ func TestNotFoundResponse(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.False(t, response.Success)
 	assert.Equal(t, ErrCodeNotFound, response.Error.Code)
@@ -158,7 +158,7 @@ func TestBadRequestResponse(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.Equal(t, ErrCodeBadRequest, response.Error.Code)
 }
@@ -171,7 +171,7 @@ func TestUnauthorizedResponse(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.Equal(t, ErrCodeUnauthorized, response.Error.Code)
 }
@@ -184,7 +184,7 @@ func TestForbiddenResponse(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.Equal(t, ErrCodeForbidden, response.Error.Code)
 }
@@ -197,7 +197,7 @@ func TestConflictResponse(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.Equal(t, ErrCodeConflict, response.Error.Code)
 }
@@ -210,7 +210,7 @@ func TestTooManyRequestsResponse(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.Equal(t, ErrCodeTooManyRequests, response.Error.Code)
 	assert.Equal(t, 60, response.Error.RetryAfter)
@@ -224,7 +224,7 @@ func TestInternalErrorResponse(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 	var response APIResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	assert.Equal(t, ErrCodeInternal, response.Error.Code)
 }
@@ -261,7 +261,7 @@ func TestHandleDomainError(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 
 		var response APIResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 		assert.Equal(t, ErrCodeBusinessRule, response.Error.Code)
 		assert.NotNil(t, response.Error.Details)
@@ -277,7 +277,7 @@ func TestHandleDomainError(t *testing.T) {
 		assert.Equal(t, http.StatusConflict, w.Code)
 
 		var response APIResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 		assert.Equal(t, ErrCodeConcurrency, response.Error.Code)
 	})
@@ -302,7 +302,7 @@ func TestHandleDomainError(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code)
 
 		var response APIResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 		assert.Equal(t, "USER_NOT_FOUND", response.Error.Code)
 	})
@@ -352,3 +352,4 @@ func TestExtractDomainError(t *testing.T) {
 	assert.NotNil(t, extracted)
 	assert.Equal(t, "CODE", extracted.Code)
 }
+
