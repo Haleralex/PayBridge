@@ -80,7 +80,7 @@ func TestHealthHandler_Health(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response HealthResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "healthy", response.Status)
@@ -106,7 +106,7 @@ func TestHealthHandler_Health(t *testing.T) {
 
 		// Assert
 		var response HealthResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 		// Uptime should be non-empty (may be "0s" due to rounding, but should exist)
 		assert.NotEmpty(t, response.Uptime)
@@ -133,7 +133,7 @@ func TestHealthHandler_Live(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]string
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "alive", response["status"])
@@ -160,7 +160,7 @@ func TestHealthHandler_Ready_WithoutPool(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response ReadinessResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.True(t, response.Ready)
@@ -213,7 +213,7 @@ func TestHealthHandler_Ready_WithPool(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response ReadinessResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 		assert.True(t, response.Ready)
 	})
 }
@@ -238,7 +238,7 @@ func TestHealthHandler_DetailedHealth(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response HealthResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "healthy", response.Status)
@@ -262,7 +262,7 @@ func TestHealthHandler_DetailedHealth(t *testing.T) {
 
 		// Assert
 		var response HealthResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 		// When no pool, should still report healthy
 		assert.Equal(t, "healthy", response.Status)
@@ -347,7 +347,7 @@ func TestHealthHandler_IntegrationScenarios(t *testing.T) {
 			router.ServeHTTP(w, req)
 
 			var response HealthResponse
-			json.Unmarshal(w.Body.Bytes(), &response)
+			_ = json.Unmarshal(w.Body.Bytes(), &response)
 			responses = append(responses, response)
 
 			time.Sleep(10 * time.Millisecond)
@@ -406,7 +406,7 @@ func TestHealthHandler_EdgeCases(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response HealthResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 		assert.Equal(t, "healthy", response.Status)
 		assert.Empty(t, response.Version)
 		assert.Empty(t, response.BuildTime)
@@ -437,7 +437,7 @@ func TestHealthHandler_PoolPingFailures(t *testing.T) {
 
 		// When no pool, status remains healthy
 		var response HealthResponse
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 		assert.Equal(t, "healthy", response.Status)
 	})
 }
@@ -492,3 +492,4 @@ func TestHealthHandler_DatabaseErrors(t *testing.T) {
 		assert.NotNil(t, mockErr)
 	})
 }
+

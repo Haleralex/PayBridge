@@ -93,7 +93,7 @@ func TestProcessTransactionUseCase_Failure(t *testing.T) {
 	// Кошелёк который нужно откатить
 	wallet := createTestWallet(walletID, userID, currency)
 	// Предположим wallet был зачислен при создании транзакции
-	wallet.Credit(amountMoney)
+	_ = wallet.Credit(amountMoney)
 
 	var savedTransaction *entities.Transaction
 	var savedWallet *entities.Wallet
