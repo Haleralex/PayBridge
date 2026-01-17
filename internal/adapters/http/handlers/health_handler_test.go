@@ -80,7 +80,7 @@ func TestHealthHandler_Health(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response HealthResponse
-		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
+		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "healthy", response.Status)
@@ -133,7 +133,7 @@ func TestHealthHandler_Live(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]string
-		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
+		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "alive", response["status"])
@@ -160,7 +160,7 @@ func TestHealthHandler_Ready_WithoutPool(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response ReadinessResponse
-		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
+		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.True(t, response.Ready)
@@ -238,7 +238,7 @@ func TestHealthHandler_DetailedHealth(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response HealthResponse
-		err := _ = json.Unmarshal(w.Body.Bytes(), &response)
+		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "healthy", response.Status)
@@ -492,4 +492,5 @@ func TestHealthHandler_DatabaseErrors(t *testing.T) {
 		assert.NotNil(t, mockErr)
 	})
 }
+
 
