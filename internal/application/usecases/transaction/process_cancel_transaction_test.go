@@ -332,8 +332,8 @@ func TestCancelTransactionUseCase_AlreadyCompleted(t *testing.T) {
 	// Создаём транзакцию в статусе COMPLETED
 	amountMoney, _ := valueobjects.NewMoney("100.00", currency)
 	transaction, _ := entities.NewTransaction(walletID, uuid.New().String(), entities.TransactionTypeDeposit, amountMoney, "Test")
-	transaction.StartProcessing()
-	transaction.MarkCompleted() // Уже завершена!
+	_ = transaction.StartProcessing()
+	_ = transaction.MarkCompleted() // Уже завершена!
 
 	walletRepo := &mockWalletRepo{}
 
