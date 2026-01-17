@@ -336,8 +336,8 @@ func TestWallet_Credit(t *testing.T) {
 		amount1, _ := valueobjects.NewMoneyFromInt(100, currency)
 		amount2, _ := valueobjects.NewMoneyFromInt(50, currency)
 
-		wallet.Credit(amount1)
-		wallet.Credit(amount2)
+		_ = wallet.Credit(amount1)
+		_ = wallet.Credit(amount2)
 
 		expected, _ := valueobjects.NewMoneyFromInt(150, currency)
 		if !wallet.AvailableBalance().Equals(expected) {
@@ -386,7 +386,7 @@ func TestWallet_Debit(t *testing.T) {
 		initialAmount, _ := valueobjects.NewMoneyFromInt(100, currency)
 		debitAmount, _ := valueobjects.NewMoneyFromInt(30, currency)
 
-		wallet.Credit(initialAmount)
+		_ = wallet.Credit(initialAmount)
 		initialVersion := wallet.BalanceVersion()
 
 		err := wallet.Debit(debitAmount)
@@ -427,7 +427,7 @@ func TestWallet_Debit(t *testing.T) {
 
 	t.Run("Currency mismatch", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 		amount, _ := valueobjects.NewMoneyFromInt(10, valueobjects.EUR)
 
 		err := wallet.Debit(amount)
@@ -439,7 +439,7 @@ func TestWallet_Debit(t *testing.T) {
 	t.Run("Debit exact balance", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
 		amount, _ := valueobjects.NewMoneyFromInt(100, currency)
-		wallet.Credit(amount)
+		_ = wallet.Credit(amount)
 
 		err := wallet.Debit(amount)
 		if err != nil {
@@ -453,7 +453,7 @@ func TestWallet_Debit(t *testing.T) {
 
 	t.Run("Debit zero amount", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 		zeroAmount := valueobjects.Zero(currency)
 
 		err := wallet.Debit(zeroAmount)
@@ -473,7 +473,7 @@ func TestWallet_Reserve(t *testing.T) {
 		initialAmount, _ := valueobjects.NewMoneyFromInt(100, currency)
 		reserveAmount, _ := valueobjects.NewMoneyFromInt(30, currency)
 
-		wallet.Credit(initialAmount)
+		_ = wallet.Credit(initialAmount)
 
 		err := wallet.Reserve(reserveAmount)
 		if err != nil {
@@ -513,13 +513,13 @@ func TestWallet_Reserve(t *testing.T) {
 
 	t.Run("Multiple reserves accumulate pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 
 		reserve1, _ := valueobjects.NewMoneyFromInt(20, currency)
 		reserve2, _ := valueobjects.NewMoneyFromInt(15, currency)
 
-		wallet.Reserve(reserve1)
-		wallet.Reserve(reserve2)
+		_ = wallet.Reserve(reserve1)
+		_ = wallet.Reserve(reserve2)
 
 		expectedPending, _ := valueobjects.NewMoneyFromInt(35, currency)
 		if !wallet.PendingBalance().Equals(expectedPending) {
@@ -535,7 +535,7 @@ func TestWallet_Reserve(t *testing.T) {
 	t.Run("Reserve exact balance", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
 		amount, _ := valueobjects.NewMoneyFromInt(100, currency)
-		wallet.Credit(amount)
+		_ = wallet.Credit(amount)
 
 		err := wallet.Reserve(amount)
 		if err != nil {
@@ -562,8 +562,8 @@ func TestWallet_Release(t *testing.T) {
 		initialAmount, _ := valueobjects.NewMoneyFromInt(100, currency)
 		reserveAmount, _ := valueobjects.NewMoneyFromInt(30, currency)
 
-		wallet.Credit(initialAmount)
-		wallet.Reserve(reserveAmount)
+		_ = wallet.Credit(initialAmount)
+		_ = wallet.Reserve(reserveAmount)
 
 		err := wallet.Release(reserveAmount)
 		if err != nil {
@@ -581,8 +581,8 @@ func TestWallet_Release(t *testing.T) {
 
 	t.Run("Release more than pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
-		wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
 
 		releaseAmount, _ := valueobjects.NewMoneyFromInt(50, currency)
 		err := wallet.Release(releaseAmount)
@@ -593,8 +593,8 @@ func TestWallet_Release(t *testing.T) {
 
 	t.Run("Release partial pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
-		wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
 
 		releaseAmount, _ := valueobjects.NewMoneyFromInt(10, currency)
 		err := wallet.Release(releaseAmount)
@@ -610,9 +610,9 @@ func TestWallet_Release(t *testing.T) {
 
 	t.Run("Release exact pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 		reserveAmount, _ := valueobjects.NewMoneyFromInt(30, currency)
-		wallet.Reserve(reserveAmount)
+		_ = wallet.Reserve(reserveAmount)
 
 		err := wallet.Release(reserveAmount)
 		if err != nil {
@@ -626,7 +626,7 @@ func TestWallet_Release(t *testing.T) {
 
 	t.Run("Release with zero pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 
 		releaseAmount, _ := valueobjects.NewMoneyFromInt(10, currency)
 		err := wallet.Release(releaseAmount)
@@ -643,9 +643,9 @@ func TestWallet_CompletePending(t *testing.T) {
 
 	t.Run("Successful complete", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 		reserveAmount, _ := valueobjects.NewMoneyFromInt(30, currency)
-		wallet.Reserve(reserveAmount)
+		_ = wallet.Reserve(reserveAmount)
 
 		err := wallet.CompletePending(reserveAmount)
 		if err != nil {
@@ -664,8 +664,8 @@ func TestWallet_CompletePending(t *testing.T) {
 
 	t.Run("Complete more than pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
-		wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
 
 		completeAmount, _ := valueobjects.NewMoneyFromInt(50, currency)
 		err := wallet.CompletePending(completeAmount)
@@ -676,9 +676,9 @@ func TestWallet_CompletePending(t *testing.T) {
 
 	t.Run("Complete exact pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 		reserveAmount, _ := valueobjects.NewMoneyFromInt(30, currency)
-		wallet.Reserve(reserveAmount)
+		_ = wallet.Reserve(reserveAmount)
 
 		err := wallet.CompletePending(reserveAmount)
 		if err != nil {
@@ -692,8 +692,8 @@ func TestWallet_CompletePending(t *testing.T) {
 
 	t.Run("Complete partial pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
-		wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
 
 		completeAmount, _ := valueobjects.NewMoneyFromInt(10, currency)
 		err := wallet.CompletePending(completeAmount)
@@ -744,7 +744,7 @@ func TestWallet_Activate(t *testing.T) {
 
 	t.Run("Activate suspended wallet", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Suspend()
+		_ = wallet.Suspend()
 
 		err := wallet.Activate()
 		if err != nil {
@@ -804,7 +804,7 @@ func TestWallet_Close(t *testing.T) {
 
 	t.Run("Close wallet with non-zero available balance", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 
 		err := wallet.Close()
 		if err == nil {
@@ -814,8 +814,8 @@ func TestWallet_Close(t *testing.T) {
 
 	t.Run("Close wallet with non-zero pending balance", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
-		wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+		_ = wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 
 		err := wallet.Close()
 		if err == nil {
@@ -825,7 +825,7 @@ func TestWallet_Close(t *testing.T) {
 
 	t.Run("Close wallet with available but no pending", func(t *testing.T) {
 		wallet, _ := NewWallet(userID, currency)
-		wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(50, currency)))
+		_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(50, currency)))
 
 		err := wallet.Close()
 		if err == nil {
@@ -876,8 +876,8 @@ func TestWallet_TotalBalance(t *testing.T) {
 	currency := valueobjects.USD
 
 	wallet, _ := NewWallet(userID, currency)
-	wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
-	wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
+	_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+	_ = wallet.Reserve(mustMoney(valueobjects.NewMoneyFromInt(30, currency)))
 
 	total, err := wallet.TotalBalance()
 	if err != nil {
@@ -959,7 +959,7 @@ func TestWallet_UpdatedAtChanges(t *testing.T) {
 	initialUpdatedAt := wallet.UpdatedAt()
 	time.Sleep(10 * time.Millisecond)
 
-	wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
+	_ = wallet.Credit(mustMoney(valueobjects.NewMoneyFromInt(100, currency)))
 
 	if !wallet.UpdatedAt().After(initialUpdatedAt) {
 		t.Error("UpdatedAt should change after Credit operation")

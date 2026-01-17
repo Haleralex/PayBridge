@@ -302,7 +302,7 @@ func TestUserHandler_ListUsers(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &response)
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NotNil(t, response["meta"])
 	})
 
