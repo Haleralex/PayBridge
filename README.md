@@ -22,10 +22,9 @@ internal/
 ## 🚀 Tech Stack
 
 - **Go 1.21+** - Core language
-- **PostgreSQL** - Primary database
-- **Redis** - Caching layer
-- **Kafka** - Event streaming
+- **PostgreSQL** - Primary database with pgx driver
 - **Docker** - Containerization
+- **testcontainers-go** - Integration testing
 
 ## 🧪 Testing
 
@@ -98,8 +97,9 @@ Set environment variables:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/paybridge?sslmode=disable
-REDIS_URL=redis://localhost:6379
-KAFKA_BROKERS=localhost:9092
+HOST=0.0.0.0
+PORT=8080
+ENVIRONMENT=development
 ```
 
 ## 📡 API Endpoints
