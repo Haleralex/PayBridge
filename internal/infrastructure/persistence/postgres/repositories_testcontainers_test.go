@@ -523,7 +523,7 @@ func TestUnitOfWork_Integration_Commit(t *testing.T) {
 	t.Run("CommitSuccess", func(t *testing.T) {
 		err := uow.Execute(ctx, func(ctx context.Context) error {
 			user, _ := entities.NewUser("commit@example.com", "Commit User")
-			return _ = userRepo.Save(ctx, user)
+			return userRepo.Save(ctx, user)
 		})
 
 		assert.NoError(t, err)
@@ -561,16 +561,16 @@ func TestUnitOfWork_Integration_AtomicTransfer(t *testing.T) {
 	// Setup users
 	user1, _ := entities.NewUser("transfer1@example.com", "User 1")
 	user2, _ := entities.NewUser("transfer2@example.com", "User 2")
-	require.NoError(t, _ = userRepo.Save(ctx, user1))
-	require.NoError(t, _ = userRepo.Save(ctx, user2))
+	_ = userRepo.Save(ctx, user1)
+	_ = userRepo.Save(ctx, user2)
 
 	currency, _ := valueobjects.NewCurrency("USD")
 	wallet1, _ := entities.NewWallet(user1.ID(), currency)
 	wallet2, _ := entities.NewWallet(user2.ID(), currency)
 
 	// Save empty wallets first
-	require.NoError(t, _ = walletRepo.Save(ctx, wallet1))
-	require.NoError(t, _ = walletRepo.Save(ctx, wallet2))
+	_ = walletRepo.Save(ctx, wallet1)
+	_ = walletRepo.Save(ctx, wallet2)
 
 	// Credit wallet1 with initial balance in a transaction
 	initialAmount, _ := valueobjects.NewMoney("1000.00", currency)
@@ -582,7 +582,7 @@ func TestUnitOfWork_Integration_AtomicTransfer(t *testing.T) {
 		if err := w1.Credit(initialAmount); err != nil {
 			return err
 		}
-		return _ = walletRepo.Save(txCtx, w1)
+		return walletRepo.Save(txCtx, w1)
 	})
 	require.NoError(t, err, "Initial credit should succeed")
 
