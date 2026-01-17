@@ -18,13 +18,14 @@ import "context"
 // "Как гарантировать, что несколько операций выполнятся атомарно?"
 //
 // Пример использования:
-//   err := uow.Execute(ctx, func(ctx context.Context) error {
-//       user, _ := userRepo.FindByID(ctx, userID)
-//       wallet, _ := walletRepo.Create(ctx, user.ID(), currency)
-//       return eventPublisher.Publish(ctx, WalletCreated{...})
-//   })
-//   // Если любая операция вернёт error - automatic rollback
-//   // Если все успешны - automatic commit
+//
+//	err := uow.Execute(ctx, func(ctx context.Context) error {
+//	    user, _ := userRepo.FindByID(ctx, userID)
+//	    wallet, _ := walletRepo.Create(ctx, user.ID(), currency)
+//	    return eventPublisher.Publish(ctx, WalletCreated{...})
+//	})
+//	// Если любая операция вернёт error - automatic rollback
+//	// Если все успешны - automatic commit
 type UnitOfWork interface {
 	// Execute выполняет функцию внутри транзакции.
 	//
