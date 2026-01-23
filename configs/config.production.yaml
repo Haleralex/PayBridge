@@ -1,0 +1,76 @@
+# PayBridge Production Configuration
+#
+# IMPORTANT: Do NOT commit secrets to version control!
+# Use environment variables for sensitive data:
+#   - PAYBRIDGE_DATABASE_PASSWORD
+#   - PAYBRIDGE_AUTH_JWT_SECRET
+
+app:
+  name: "PayBridge"
+  version: "1.0.0"
+  environment: "production"
+  debug: false
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "30s"
+  write_timeout: "30s"
+  idle_timeout: "120s"
+  shutdown_timeout: "60s"
+
+database:
+  host: "${DB_HOST}"           # Set via env: PAYBRIDGE_DATABASE_HOST
+  port: 5432
+  user: "${DB_USER}"           # Set via env: PAYBRIDGE_DATABASE_USER
+  password: "${DB_PASSWORD}"   # Set via env: PAYBRIDGE_DATABASE_PASSWORD
+  database: "paybridge"
+  ssl_mode: "require"
+  max_connections: 50
+  min_connections: 10
+  max_conn_lifetime: "1h"
+  max_conn_idle_time: "30m"
+
+auth:
+  jwt_secret: "${JWT_SECRET}"  # Set via env: PAYBRIDGE_AUTH_JWT_SECRET
+  jwt_issuer: "paybridge"
+  access_token_expiry: "15m"
+  refresh_token_expiry: "168h"
+  enable_mock_auth: false      # MUST be false in production!
+
+cors:
+  allowed_origins:
+    - "https://paybridge.example.com"
+    - "https://admin.paybridge.example.com"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "PATCH"
+    - "DELETE"
+    - "OPTIONS"
+  allowed_headers:
+    - "Origin"
+    - "Content-Type"
+    - "Accept"
+    - "Authorization"
+    - "X-Request-ID"
+  exposed_headers:
+    - "X-Request-ID"
+    - "X-RateLimit-Limit"
+    - "X-RateLimit-Remaining"
+    - "X-RateLimit-Reset"
+  allow_credentials: true
+  max_age: "12h"
+
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst_size: 10
+  financial_ops_per_min: 20
+  cleanup_interval: "5m"
+
+log:
+  level: "info"
+  format: "json"
+  output: "stdout"
