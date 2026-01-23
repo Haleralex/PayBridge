@@ -728,7 +728,7 @@ func TestCancelTransactionUseCase_Integration_Success(t *testing.T) {
 
 	// 3. Создаём transaction НАПРЯМУЮ через entities (минуя use case!)
 	currency := valueobjects.MustNewCurrency("USD")
-	amount, err := valueobjects.NewMoney("250.00", currency)
+	amount, err := valueobjects.NewMoney("20.00", currency)
 	if err != nil {
 		t.Fatalf("Failed to create money: %v", err)
 	}

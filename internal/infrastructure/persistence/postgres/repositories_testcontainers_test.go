@@ -1,8 +1,10 @@
+//go:build testcontainers
+
 // Package postgres - интеграционные тесты для PostgreSQL repositories с testcontainers.
 //
 // Запуск тестов:
 //
-//	go test ./internal/infrastructure/persistence/postgres/...
+//	go test -tags=testcontainers ./internal/infrastructure/persistence/postgres/...
 //
 // Требования:
 //   - Docker Desktop запущен

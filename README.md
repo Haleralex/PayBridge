@@ -23,6 +23,8 @@ internal/
 
 - **Go 1.21+** - Core language
 - **PostgreSQL** - Primary database with pgx driver
+- **Gin** - HTTP framework
+- **Viper** - Configuration management
 - **Docker** - Containerization
 - **testcontainers-go** - Integration testing
 
@@ -75,32 +77,36 @@ The project uses GitHub Actions for automated testing:
 git clone https://github.com/Haleralex/paybridge.git
 cd paybridge
 
-# Start PostgreSQL
-docker run -d \
-  --name paybridge-postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 \
-  postgres:15-alpine
+# Start PostgreSQL with Docker Compose
+make db-up
 
-# Run migrations
-for f in internal/infrastructure/persistence/migrations/*_up.sql; do
-  psql -h localhost -U postgres -f "$f"
-done
+# Or use full Docker Compose
+docker-compose up -d
 
 # Run application
-go run cmd/api/main.go
+make run
+
+# Or manually
+go run cmd/api/main.go -config ./configs
 ```
 
 ### Configuration
 
-Set environment variables:
+Configuration via YAML (`configs/config.yaml`) or environment variables:
 
 ```bash
+# Environment variables
+PAYBRIDGE_APP_ENVIRONMENT=development
+PAYBRIDGE_SERVER_PORT=8080
+PAYBRIDGE_DATABASE_HOST=localhost
+PAYBRIDGE_DATABASE_PASSWORD=postgres
+PAYBRIDGE_AUTH_JWT_SECRET=your-secret-key
+
+# Or legacy format
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/paybridge?sslmode=disable
-HOST=0.0.0.0
-PORT=8080
-ENVIRONMENT=development
 ```
+
+See `.env.example` for all available options.
 
 ## 📡 API Endpoints
 
@@ -174,10 +180,31 @@ psql -h localhost -U postgres -d paybridge -f migrations/001_create_users_up.sql
 
 ```bash
 # Build image
-docker build -t paybridge:latest .
+make docker-build
 
 # Run with docker-compose
 docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop all services
+docker-compose down
+```
+
+### Available Make Commands
+
+```bash
+make help           # Show all commands
+make build          # Build application
+make run            # Run locally
+make test           # Run all tests
+make test-unit      # Unit tests only
+make docker-up      # Start all containers
+make db-up          # Start PostgreSQL only
+make db-shell       # Connect to database
+make lint           # Run linter
+make ci             # Full CI pipeline
 ```
 
 ## 🔒 Security Features

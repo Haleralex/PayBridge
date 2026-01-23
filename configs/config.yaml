@@ -1,0 +1,70 @@
+# PayBridge Configuration
+# Development configuration - copy and modify for other environments
+
+app:
+  name: "PayBridge"
+  version: "1.0.0"
+  environment: "development"  # development, staging, production
+  debug: true
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "15s"
+  write_timeout: "15s"
+  idle_timeout: "60s"
+  shutdown_timeout: "30s"
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  database: "paybridge"
+  ssl_mode: "disable"
+  max_connections: 25
+  min_connections: 5
+  max_conn_lifetime: "1h"
+  max_conn_idle_time: "30m"
+
+auth:
+  jwt_secret: "change-me-in-production"
+  jwt_issuer: "paybridge"
+  access_token_expiry: "15m"
+  refresh_token_expiry: "168h"  # 7 days
+  enable_mock_auth: true  # ONLY for development!
+
+cors:
+  allowed_origins:
+    - "*"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "PATCH"
+    - "DELETE"
+    - "OPTIONS"
+  allowed_headers:
+    - "Origin"
+    - "Content-Type"
+    - "Accept"
+    - "Authorization"
+    - "X-Request-ID"
+  exposed_headers:
+    - "X-Request-ID"
+    - "X-RateLimit-Limit"
+    - "X-RateLimit-Remaining"
+  allow_credentials: true
+  max_age: "12h"
+
+rate_limit:
+  enabled: true
+  requests_per_minute: 100
+  burst_size: 20
+  financial_ops_per_min: 30
+  cleanup_interval: "1m"
+
+log:
+  level: "debug"   # debug, info, warn, error
+  format: "text"   # json, text
+  output: "stdout" # stdout, stderr, file
