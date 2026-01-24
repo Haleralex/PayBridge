@@ -16,6 +16,7 @@ import (
 	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // ============================================
@@ -168,6 +169,15 @@ func (b *RouterBuilder) Build() *gin.Engine {
 
 	// 5. Rate Limiting (global)
 	router.Use(middleware.RateLimit(middleware.DefaultRateLimitConfig()))
+
+	// 6. Metrics (Prometheus)
+	router.Use(middleware.Metrics())
+
+	// ============================================
+	// Metrics Endpoint (no auth)
+	// ============================================
+
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// ============================================
 	// Health Check Routes (no auth)
