@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -169,6 +170,9 @@ func (h *HealthHandler) DetailedHealth(c *gin.Context) {
 			checks["db_total_conns"] = strconv.Itoa(int(stats.TotalConns()))
 			checks["db_idle_conns"] = strconv.Itoa(int(stats.IdleConns()))
 			checks["db_acquired_conns"] = strconv.Itoa(int(stats.AcquiredConns()))
+
+			// Update Prometheus metrics
+			middleware.UpdateDBConnections(stats.IdleConns(), stats.AcquiredConns(), stats.MaxConns())
 		}
 	}
 

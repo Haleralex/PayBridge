@@ -199,31 +199,52 @@ db-shell: ## Connect to PostgreSQL shell
 db-logs: ## Show PostgreSQL logs
 	$(DOCKER_COMPOSE) logs -f postgres
 
-migrate-up: ## Run database migrations
-	@echo "Running migrations..."
-	@for migration in internal/infrastructure/persistence/migrations/*_up.sql; do \
-		if [ -f "$$migration" ]; then \
-			echo "Applying $$migration..."; \
-			psql "$(DATABASE_URL)" -f "$$migration"; \
-		fi \
-	done
-	@echo "Migrations completed"
-
-migrate-down: ## Rollback database migrations
-	@echo "Rolling back migrations..."
-	@for migration in $$(ls -r internal/infrastructure/persistence/migrations/*_down.sql 2>/dev/null); do \
-		if [ -f "$$migration" ]; then \
-			echo "Reverting $$migration..."; \
-			psql "$(DATABASE_URL)" -f "$$migration"; \
-		fi \
-	done
-	@echo "Rollback completed"
-
 db-reset: ## Reset database (drop and recreate)
 	@echo "Resetting database..."
 	$(DOCKER_COMPOSE) exec postgres psql -U postgres -c "DROP DATABASE IF EXISTS paybridge;"
 	$(DOCKER_COMPOSE) exec postgres psql -U postgres -c "CREATE DATABASE paybridge;"
 	@echo "Database reset complete"
+
+# ============================================
+# Migrations (golang-migrate)
+# ============================================
+
+MIGRATE_PATH := ./migrations
+MIGRATE_CMD := $(GO) run ./cmd/migrate
+
+migrate-up: ## Run all pending migrations
+	@echo "Running migrations..."
+	$(MIGRATE_CMD) -path $(MIGRATE_PATH) -database-url "$(DATABASE_URL)" up
+	@echo "Migrations completed"
+
+migrate-down: ## Rollback last migration
+	@echo "Rolling back last migration..."
+	$(MIGRATE_CMD) -path $(MIGRATE_PATH) -database-url "$(DATABASE_URL)" down 1
+	@echo "Rollback completed"
+
+migrate-down-all: ## Rollback all migrations
+	@echo "Rolling back all migrations..."
+	$(MIGRATE_CMD) -path $(MIGRATE_PATH) -database-url "$(DATABASE_URL)" down
+	@echo "Rollback completed"
+
+migrate-version: ## Show current migration version
+	$(MIGRATE_CMD) -path $(MIGRATE_PATH) -database-url "$(DATABASE_URL)" version
+
+migrate-force: ## Force migration version (usage: make migrate-force V=1)
+	$(MIGRATE_CMD) -path $(MIGRATE_PATH) -database-url "$(DATABASE_URL)" force $(V)
+
+migrate-create: ## Create new migration (usage: make migrate-create NAME=create_table)
+	@echo "Creating migration files..."
+	@mkdir -p $(MIGRATE_PATH)
+	@TIMESTAMP=$$(date +%Y%m%d%H%M%S); \
+	touch $(MIGRATE_PATH)/$${TIMESTAMP}_$(NAME).up.sql; \
+	touch $(MIGRATE_PATH)/$${TIMESTAMP}_$(NAME).down.sql; \
+	echo "Created: $(MIGRATE_PATH)/$${TIMESTAMP}_$(NAME).up.sql"; \
+	echo "Created: $(MIGRATE_PATH)/$${TIMESTAMP}_$(NAME).down.sql"
+
+migrate-status: ## Show migration status
+	@echo "Migration files in $(MIGRATE_PATH):"
+	@ls -la $(MIGRATE_PATH)/*.sql 2>/dev/null || echo "No migrations found"
 
 # ============================================
 # Development Tools

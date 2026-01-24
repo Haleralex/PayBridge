@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -62,6 +63,18 @@ func Logging(config *LoggingConfig) gin.HandlerFunc {
 
 		// Запоминаем время начала
 		start := time.Now()
+
+		// Add correlation IDs to context for downstream logging
+		requestID := GetRequestID(c)
+		ctx := c.Request.Context()
+		ctx = logger.WithRequestID(ctx, requestID)
+		ctx = logger.WithCorrelationID(ctx, requestID) // Use request ID as correlation ID
+		if userID, exists := c.Get("user_id"); exists {
+			if uid, ok := userID.(string); ok {
+				ctx = logger.WithUserID(ctx, uid)
+			}
+		}
+		c.Request = c.Request.WithContext(ctx)
 
 		// Читаем request body если нужно
 		var requestBody string
