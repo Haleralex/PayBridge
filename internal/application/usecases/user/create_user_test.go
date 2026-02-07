@@ -63,6 +63,10 @@ func (m *MockUserRepository) ExistsByEmail(ctx context.Context, email string) (b
 	return false, nil
 }
 
+func (m *MockUserRepository) FindByTelegramID(ctx context.Context, telegramID int64) (*entities.User, error) {
+	return nil, domainErrors.ErrEntityNotFound
+}
+
 func (m *MockUserRepository) List(ctx context.Context, offset, limit int) ([]*entities.User, error) {
 	if m.ListFunc != nil {
 		return m.ListFunc(ctx, offset, limit)

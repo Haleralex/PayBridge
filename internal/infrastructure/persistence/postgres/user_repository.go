@@ -55,12 +55,13 @@ func (r *UserRepository) Save(ctx context.Context, user *entities.User) error {
 	q := r.getQuerier(ctx)
 
 	query := `
-		INSERT INTO users (id, email, full_name, kyc_status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (id, email, full_name, kyc_status, telegram_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (id) DO UPDATE SET
 			email = EXCLUDED.email,
 			full_name = EXCLUDED.full_name,
 			kyc_status = EXCLUDED.kyc_status,
+			telegram_id = EXCLUDED.telegram_id,
 			updated_at = EXCLUDED.updated_at
 	`
 
@@ -69,6 +70,7 @@ func (r *UserRepository) Save(ctx context.Context, user *entities.User) error {
 		user.Email(),
 		user.FullName(),
 		string(user.KYCStatus()),
+		user.TelegramID(),
 		user.CreatedAt(),
 		user.UpdatedAt(),
 	)
@@ -88,49 +90,53 @@ func (r *UserRepository) Save(ctx context.Context, user *entities.User) error {
 	return nil
 }
 
-// FindByID загружает пользователя по ID.
-func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*entities.User, error) {
-	q := r.getQuerier(ctx)
-
-	query := `
-		SELECT id, email, full_name, kyc_status, created_at, updated_at
-		FROM users
-		WHERE id = $1
-	`
-
+// scanUser сканирует строку в domain entity User.
+func scanUser(scanner interface{ Scan(dest ...any) error }) (*entities.User, error) {
 	var (
 		userID               uuid.UUID
 		email                string
 		fullName             string
 		kycStatus            string
+		telegramID           *int64
 		createdAt, updatedAt time.Time
 	)
 
-	err := q.QueryRow(ctx, query, id).Scan(
+	err := scanner.Scan(
 		&userID,
 		&email,
 		&fullName,
 		&kycStatus,
+		&telegramID,
 		&createdAt,
 		&updatedAt,
 	)
+	if err != nil {
+		return nil, err
+	}
 
+	return entities.ReconstructUser(
+		userID, email, fullName,
+		entities.KYCStatus(kycStatus),
+		telegramID,
+		createdAt, updatedAt,
+	), nil
+}
+
+const userColumns = `id, email, full_name, kyc_status, telegram_id, created_at, updated_at`
+
+// FindByID загружает пользователя по ID.
+func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*entities.User, error) {
+	q := r.getQuerier(ctx)
+
+	query := `SELECT ` + userColumns + ` FROM users WHERE id = $1`
+
+	user, err := scanUser(q.QueryRow(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domainErrors.ErrEntityNotFound
 		}
 		return nil, fmt.Errorf("failed to find user by id: %w", err)
 	}
-
-	// Reconstruct domain entity
-	user := entities.ReconstructUser(
-		userID,
-		email,
-		fullName,
-		entities.KYCStatus(kycStatus),
-		createdAt,
-		updatedAt,
-	)
 
 	return user, nil
 }
@@ -139,44 +145,15 @@ func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*entities.
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*entities.User, error) {
 	q := r.getQuerier(ctx)
 
-	query := `
-		SELECT id, email, full_name, kyc_status, created_at, updated_at
-		FROM users
-		WHERE email = $1
-	`
+	query := `SELECT ` + userColumns + ` FROM users WHERE email = $1`
 
-	var (
-		userID               uuid.UUID
-		userEmail            string
-		fullName             string
-		kycStatus            string
-		createdAt, updatedAt time.Time
-	)
-
-	err := q.QueryRow(ctx, query, email).Scan(
-		&userID,
-		&userEmail,
-		&fullName,
-		&kycStatus,
-		&createdAt,
-		&updatedAt,
-	)
-
+	user, err := scanUser(q.QueryRow(ctx, query, email))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domainErrors.ErrEntityNotFound
 		}
 		return nil, fmt.Errorf("failed to find user by email: %w", err)
 	}
-
-	user := entities.ReconstructUser(
-		userID,
-		userEmail,
-		fullName,
-		entities.KYCStatus(kycStatus),
-		createdAt,
-		updatedAt,
-	)
 
 	return user, nil
 }
@@ -197,16 +174,28 @@ func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 	return exists, nil
 }
 
+// FindByTelegramID загружает пользователя по Telegram ID.
+func (r *UserRepository) FindByTelegramID(ctx context.Context, telegramID int64) (*entities.User, error) {
+	q := r.getQuerier(ctx)
+
+	query := `SELECT ` + userColumns + ` FROM users WHERE telegram_id = $1`
+
+	user, err := scanUser(q.QueryRow(ctx, query, telegramID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domainErrors.ErrEntityNotFound
+		}
+		return nil, fmt.Errorf("failed to find user by telegram_id: %w", err)
+	}
+
+	return user, nil
+}
+
 // List возвращает список пользователей с пагинацией.
 func (r *UserRepository) List(ctx context.Context, offset, limit int) ([]*entities.User, error) {
 	q := r.getQuerier(ctx)
 
-	query := `
-		SELECT id, email, full_name, kyc_status, created_at, updated_at
-		FROM users
-		ORDER BY created_at DESC
-		OFFSET $1 LIMIT $2
-	`
+	query := `SELECT ` + userColumns + ` FROM users ORDER BY created_at DESC OFFSET $1 LIMIT $2`
 
 	rows, err := q.Query(ctx, query, offset, limit)
 	if err != nil {
@@ -216,26 +205,10 @@ func (r *UserRepository) List(ctx context.Context, offset, limit int) ([]*entiti
 
 	var users []*entities.User
 	for rows.Next() {
-		var (
-			userID               uuid.UUID
-			email                string
-			fullName             string
-			kycStatus            string
-			createdAt, updatedAt time.Time
-		)
-
-		if err := rows.Scan(&userID, &email, &fullName, &kycStatus, &createdAt, &updatedAt); err != nil {
+		user, err := scanUser(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan user row: %w", err)
 		}
-
-		user := entities.ReconstructUser(
-			userID,
-			email,
-			fullName,
-			entities.KYCStatus(kycStatus),
-			createdAt,
-			updatedAt,
-		)
 		users = append(users, user)
 	}
 

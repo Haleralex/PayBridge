@@ -41,6 +41,10 @@ type UserRepository interface {
 	// Оптимизация для проверки уникальности.
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 
+	// FindByTelegramID загружает пользователя по Telegram ID.
+	// Используется для Telegram Mini App аутентификации.
+	FindByTelegramID(ctx context.Context, telegramID int64) (*entities.User, error)
+
 	// List возвращает список пользователей с пагинацией.
 	// offset: пропустить N записей
 	// limit: вернуть максимум N записей

@@ -352,3 +352,251 @@ func TestBindURI(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
+
+func TestValidateKYCStatus(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	SetupValidator()
+
+	type TestRequest struct {
+		Status string `json:"status" binding:"required,kyc_status"`
+	}
+
+	router := gin.New()
+	router.POST("/test", func(c *gin.Context) {
+		var req TestRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"status": req.Status})
+	})
+
+	t.Run("ValidStatuses", func(t *testing.T) {
+		validStatuses := []string{"UNVERIFIED", "PENDING", "VERIFIED", "REJECTED"}
+		for _, status := range validStatuses {
+			body, _ := json.Marshal(TestRequest{Status: status})
+			req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code, "Status %s should be valid", status)
+		}
+	})
+
+	t.Run("InvalidStatus", func(t *testing.T) {
+		body, _ := json.Marshal(TestRequest{Status: "INVALID"})
+		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+func TestValidateWalletStatus(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	SetupValidator()
+
+	type TestRequest struct {
+		Status string `json:"status" binding:"required,wallet_status"`
+	}
+
+	router := gin.New()
+	router.POST("/test", func(c *gin.Context) {
+		var req TestRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"status": req.Status})
+	})
+
+	t.Run("ValidStatuses", func(t *testing.T) {
+		validStatuses := []string{"ACTIVE", "SUSPENDED", "LOCKED", "CLOSED"}
+		for _, status := range validStatuses {
+			body, _ := json.Marshal(TestRequest{Status: status})
+			req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code, "Status %s should be valid", status)
+		}
+	})
+
+	t.Run("InvalidStatus", func(t *testing.T) {
+		body, _ := json.Marshal(TestRequest{Status: "INVALID"})
+		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+func TestValidateTransactionType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	SetupValidator()
+
+	type TestRequest struct {
+		Type string `json:"type" binding:"required,transaction_type"`
+	}
+
+	router := gin.New()
+	router.POST("/test", func(c *gin.Context) {
+		var req TestRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"type": req.Type})
+	})
+
+	t.Run("ValidTypes", func(t *testing.T) {
+		validTypes := []string{"DEPOSIT", "WITHDRAW", "PAYOUT", "TRANSFER", "FEE", "REFUND", "ADJUSTMENT"}
+		for _, txType := range validTypes {
+			body, _ := json.Marshal(TestRequest{Type: txType})
+			req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code, "Type %s should be valid", txType)
+		}
+	})
+
+	t.Run("InvalidType", func(t *testing.T) {
+		body, _ := json.Marshal(TestRequest{Type: "INVALID"})
+		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+func TestBindQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	type QueryParams struct {
+		Status string `form:"status" binding:"required"`
+		Page   int    `form:"page" binding:"min=1"`
+	}
+
+	t.Run("Success", func(t *testing.T) {
+		router := gin.New()
+		router.GET("/test", func(c *gin.Context) {
+			c.Set("X-Request-ID", "test-123")
+			var params QueryParams
+			if BindQuery(c, &params) {
+				c.JSON(200, gin.H{"status": params.Status, "page": params.Page})
+			}
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test?status=active&page=2", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("MissingRequired", func(t *testing.T) {
+		router := gin.New()
+		router.GET("/test", func(c *gin.Context) {
+			c.Set("X-Request-ID", "test-123")
+			var params QueryParams
+			if !BindQuery(c, &params) {
+				return
+			}
+			c.JSON(200, gin.H{})
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test?page=1", nil) // missing status
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+func TestParseInt(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int
+	}{
+		{"0", 0},
+		{"1", 1},
+		{"10", 10},
+		{"123", 123},
+		{"999", 999},
+		{"abc", 0},
+		{"12a", 0},
+		{"", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseInt(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGetValidationMessage(t *testing.T) {
+	// This tests the getValidationMessage function indirectly through validation errors
+	gin.SetMode(gin.TestMode)
+	SetupValidator()
+
+	type TestRequest struct {
+		Email    string `json:"email" binding:"required,email"`
+		Name     string `json:"name" binding:"required,min=2,max=50"`
+		Currency string `json:"currency" binding:"currency_code"`
+		Amount   string `json:"amount" binding:"money_amount"`
+	}
+
+	router := gin.New()
+	router.POST("/test", func(c *gin.Context) {
+		var req TestRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			HandleValidationErrors(c, err)
+			return
+		}
+		c.JSON(200, gin.H{})
+	})
+
+	t.Run("EmailValidation", func(t *testing.T) {
+		body := []byte(`{"email":"invalid","name":"Test","currency":"USD","amount":"100"}`)
+		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "email")
+	})
+
+	t.Run("MinValidation", func(t *testing.T) {
+		body := []byte(`{"email":"test@test.com","name":"A","currency":"USD","amount":"100"}`)
+		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "short")
+	})
+}

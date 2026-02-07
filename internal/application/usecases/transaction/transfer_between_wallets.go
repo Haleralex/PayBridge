@@ -54,8 +54,8 @@ func NewTransferBetweenWalletsUseCase(
 }
 
 // Execute выполняет перевод между кошельками.
-func (uc *TransferBetweenWalletsUseCase) Execute(ctx context.Context, cmd dtos.TransferBetweenWalletsCommand) (*dtos.TransactionDTO, error) {
-	var result *dtos.TransactionDTO
+func (uc *TransferBetweenWalletsUseCase) Execute(ctx context.Context, cmd dtos.TransferFundsCommand) (*dtos.TransferResultDTO, error) {
+	var result *dtos.TransferResultDTO
 
 	err := uc.uow.Execute(ctx, func(txCtx context.Context) error {
 		// 1. Проверка idempotency
@@ -65,7 +65,19 @@ func (uc *TransferBetweenWalletsUseCase) Execute(ctx context.Context, cmd dtos.T
 				return fmt.Errorf("failed to check idempotency: %w", err)
 			}
 			if existingTx != nil {
-				result = dtos.MapTransactionToDTO(existingTx)
+				sourceWallet, err := uc.walletRepo.FindByID(txCtx, existingTx.WalletID())
+				if err != nil {
+					return fmt.Errorf("failed to load source wallet: %w", err)
+				}
+				destID := existingTx.DestinationWalletID()
+				if destID == nil {
+					return fmt.Errorf("existing transfer transaction has no destination wallet")
+				}
+				destWallet, err := uc.walletRepo.FindByID(txCtx, *destID)
+				if err != nil {
+					return fmt.Errorf("failed to load destination wallet: %w", err)
+				}
+				result = uc.buildTransferResult(sourceWallet, destWallet, existingTx)
 				return nil
 			}
 		}
@@ -152,20 +164,6 @@ func (uc *TransferBetweenWalletsUseCase) Execute(ctx context.Context, cmd dtos.T
 			return fmt.Errorf("failed to set destination wallet: %w", err)
 		}
 
-		if cmd.ExternalReference != "" {
-			if err := transaction.SetExternalReference(cmd.ExternalReference); err != nil {
-				return fmt.Errorf("failed to set external reference: %w", err)
-			}
-		}
-
-		if len(cmd.Metadata) > 0 {
-			for key, value := range cmd.Metadata {
-				if err := transaction.AddMetadata(key, value); err != nil {
-					return fmt.Errorf("failed to add metadata: %w", err)
-				}
-			}
-		}
-
 		// 7. Списываем с source wallet
 		if err := sourceWallet.Debit(amount); err != nil {
 			return fmt.Errorf("failed to debit source wallet: %w", err)
@@ -231,7 +229,7 @@ func (uc *TransferBetweenWalletsUseCase) Execute(ctx context.Context, cmd dtos.T
 			return fmt.Errorf("failed to publish events: %w", err)
 		}
 
-		result = dtos.MapTransactionToDTO(transaction)
+		result = uc.buildTransferResult(sourceWallet, destinationWallet, transaction)
 		return nil
 	})
 
@@ -240,4 +238,43 @@ func (uc *TransferBetweenWalletsUseCase) Execute(ctx context.Context, cmd dtos.T
 	}
 
 	return result, nil
+}
+
+func (uc *TransferBetweenWalletsUseCase) buildTransferResult(source, dest *entities.Wallet, tx *entities.Transaction) *dtos.TransferResultDTO {
+	srcTotal, _ := source.TotalBalance()
+	dstTotal, _ := dest.TotalBalance()
+
+	return &dtos.TransferResultDTO{
+		SourceWallet: dtos.WalletDTO{
+			ID:               source.ID().String(),
+			UserID:           source.UserID().String(),
+			CurrencyCode:     source.Currency().Code(),
+			WalletType:       string(source.WalletType()),
+			Status:           string(source.Status()),
+			AvailableBalance: source.AvailableBalance().String(),
+			PendingBalance:   source.PendingBalance().String(),
+			TotalBalance:     srcTotal.String(),
+			DailyLimit:       source.DailyLimit().String(),
+			MonthlyLimit:     source.MonthlyLimit().String(),
+			CreatedAt:        source.CreatedAt(),
+			UpdatedAt:        source.UpdatedAt(),
+		},
+		DestinationWallet: dtos.WalletDTO{
+			ID:               dest.ID().String(),
+			UserID:           dest.UserID().String(),
+			CurrencyCode:     dest.Currency().Code(),
+			WalletType:       string(dest.WalletType()),
+			Status:           string(dest.Status()),
+			AvailableBalance: dest.AvailableBalance().String(),
+			PendingBalance:   dest.PendingBalance().String(),
+			TotalBalance:     dstTotal.String(),
+			DailyLimit:       dest.DailyLimit().String(),
+			MonthlyLimit:     dest.MonthlyLimit().String(),
+			CreatedAt:        dest.CreatedAt(),
+			UpdatedAt:        dest.UpdatedAt(),
+		},
+		TransactionID: tx.ID().String(),
+		Amount:        tx.Amount().String(),
+		Status:        string(tx.Status()),
+	}
 }

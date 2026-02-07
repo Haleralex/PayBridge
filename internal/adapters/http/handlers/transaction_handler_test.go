@@ -79,7 +79,7 @@ func setupTransactionTestRouter(handler *TransactionHandler) *gin.Engine {
 // ============================================
 
 func TestNewTransactionHandler(t *testing.T) {
-	handler := NewTransactionHandler(nil, nil, nil, nil)
+	handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 	assert.NotNil(t, handler)
 }
 
@@ -106,7 +106,7 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(mockUseCase, nil, nil, nil)
+		handler := NewTransactionHandler(mockUseCase, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/"+txID, nil)
@@ -122,7 +122,7 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewTransactionHandler(&mockGetTransactionUseCase{}, nil, nil, nil)
+		handler := NewTransactionHandler(&mockGetTransactionUseCase{}, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/not-a-uuid", nil)
@@ -140,7 +140,7 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(mockUseCase, nil, nil, nil)
+		handler := NewTransactionHandler(mockUseCase, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/"+uuid.New().String(), nil)
@@ -152,7 +152,7 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 	})
 
 	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil)
+		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/"+uuid.New().String(), nil)
@@ -182,7 +182,7 @@ func TestTransactionHandler_ListTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions", nil)
@@ -207,7 +207,7 @@ func TestTransactionHandler_ListTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		walletID := uuid.New().String()
@@ -220,7 +220,7 @@ func TestTransactionHandler_ListTransactions(t *testing.T) {
 	})
 
 	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil)
+		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions", nil)
@@ -249,7 +249,7 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, mockUseCase, nil)
+		handler := NewTransactionHandler(nil, nil, mockUseCase, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/"+txID+"/retry", nil)
@@ -261,7 +261,7 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, &mockRetryTransactionUseCase{}, nil)
+		handler := NewTransactionHandler(nil, nil, &mockRetryTransactionUseCase{}, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/not-a-uuid/retry", nil)
@@ -279,7 +279,7 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, mockUseCase, nil)
+		handler := NewTransactionHandler(nil, nil, mockUseCase, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/"+uuid.New().String()+"/retry", nil)
@@ -291,7 +291,7 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 	})
 
 	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil)
+		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/"+uuid.New().String()+"/retry", nil)
@@ -320,7 +320,7 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, nil, mockUseCase)
+		handler := NewTransactionHandler(nil, nil, nil, mockUseCase, nil)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(CancelTransactionRequest{
@@ -336,7 +336,7 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 	})
 
 	t.Run("MissingReason", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, &mockCancelTransactionUseCase{})
+		handler := NewTransactionHandler(nil, nil, nil, &mockCancelTransactionUseCase{}, nil)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(map[string]interface{}{})
@@ -356,7 +356,7 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, nil, mockUseCase)
+		handler := NewTransactionHandler(nil, nil, nil, mockUseCase, nil)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(CancelTransactionRequest{Reason: "Test"})
@@ -370,7 +370,7 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 	})
 
 	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil)
+		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(CancelTransactionRequest{Reason: "Test"})
@@ -401,7 +401,7 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -416,7 +416,7 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 	})
 
 	t.Run("InvalidWalletID", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, &mockListTransactionsUseCase{}, nil, nil)
+		handler := NewTransactionHandler(nil, &mockListTransactionsUseCase{}, nil, nil, nil)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -441,7 +441,7 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -456,7 +456,7 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 	})
 
 	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil)
+		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -475,7 +475,7 @@ func TestTransactionHandler_GetTransactionByIdempotencyKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("NotImplemented", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil)
+		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/by-key/some-key-123", nil)
@@ -488,7 +488,7 @@ func TestTransactionHandler_GetTransactionByIdempotencyKey(t *testing.T) {
 }
 
 func TestTransactionHandler_RegisterRoutes(t *testing.T) {
-	handler := NewTransactionHandler(nil, nil, nil, nil)
+	handler := NewTransactionHandler(nil, nil, nil, nil, nil)
 	router := gin.New()
 	handler.RegisterRoutes(router.Group("/api/v1"))
 

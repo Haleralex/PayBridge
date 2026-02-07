@@ -39,6 +39,10 @@ func (m *mockUserRepoForWallet) ExistsByEmail(ctx context.Context, email string)
 	return false, nil
 }
 
+func (m *mockUserRepoForWallet) FindByTelegramID(ctx context.Context, telegramID int64) (*entities.User, error) {
+	return nil, domainErrors.ErrEntityNotFound
+}
+
 func (m *mockUserRepoForWallet) List(ctx context.Context, offset, limit int) ([]*entities.User, error) {
 	return nil, nil
 }
@@ -124,7 +128,7 @@ func TestCreateWalletUseCase_Success(t *testing.T) {
 
 	// Создаем верифицированного пользователя
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, nil, time.Now(), time.Now())
 	_ = user.StartKYCVerification()
 	_ = user.ApproveKYC() // Verified пользователь
 
@@ -204,7 +208,7 @@ func TestCreateWalletUseCase_CryptoWallet(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, nil, time.Now(), time.Now())
 
 	userRepo := &mockUserRepoForWallet{
 		findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -381,7 +385,7 @@ func TestCreateWalletUseCase_UserNotVerified(t *testing.T) {
 			userID := uuid.New()
 
 			user, _ := entities.NewUser("test@example.com", "Test User")
-			user = entities.ReconstructUser(userID, user.Email(), user.FullName(), tt.kycStatus, time.Now(), time.Now())
+			user = entities.ReconstructUser(userID, user.Email(), user.FullName(), tt.kycStatus, nil, time.Now(), time.Now())
 
 			userRepo := &mockUserRepoForWallet{
 				findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -427,7 +431,7 @@ func TestCreateWalletUseCase_WalletAlreadyExists(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, nil, time.Now(), time.Now())
 
 	userRepo := &mockUserRepoForWallet{
 		findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -476,7 +480,7 @@ func TestCreateWalletUseCase_ExistsCheckError(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, nil, time.Now(), time.Now())
 
 	userRepo := &mockUserRepoForWallet{
 		findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -520,7 +524,7 @@ func TestCreateWalletUseCase_SaveError(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, nil, time.Now(), time.Now())
 
 	userRepo := &mockUserRepoForWallet{
 		findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -567,7 +571,7 @@ func TestCreateWalletUseCase_EventPublishError(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, nil, time.Now(), time.Now())
 
 	userRepo := &mockUserRepoForWallet{
 		findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -616,7 +620,7 @@ func TestCreateWalletUseCase_InitialBalanceIsZero(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusVerified, nil, time.Now(), time.Now())
 
 	userRepo := &mockUserRepoForWallet{
 		findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {

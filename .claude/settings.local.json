@@ -12,7 +12,21 @@
       "Bash(docker-compose:*)",
       "Bash(netstat:*)",
       "Bash(findstr:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nPhase 6: Production Readiness\n\n- Add golang-migrate for database migrations with CLI \\(cmd/migrate\\)\n- Create migration files for users, wallets, transactions, outbox\n- Add Prometheus metrics middleware and /metrics endpoint\n- Add structured logging with correlation IDs \\(internal/pkg/logger\\)\n- Enhance health checks with DB metrics reporting\n- Update Makefile with migration commands\n- Add Phase 6 documentation\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(go tool cover:*)",
+      "Bash(git commit:*)",
+      "Bash(sort:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git checkout:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(docker logs:*)",
+      "Bash(USER_ID=\"d83d8ae4-2287-46ae-8ff6-3ac291e8e3e7\":*)",
+      "Bash(WALLET_ID=\"b76b542b-64fb-4dda-b99a-33019730f1c1\")"
     ]
   }
 }

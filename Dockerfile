@@ -5,7 +5,7 @@
 # ============================================
 # Stage 1: Build
 # ============================================
-FROM golang:1.24-alpine AS builder
+FROM golang:alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -16,7 +16,8 @@ WORKDIR /app
 # Copy go mod files
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download dependencies (GOTOOLCHAIN=auto allows automatic Go version upgrade)
+ENV GOTOOLCHAIN=auto
 RUN go mod download
 
 # Copy source code
@@ -55,6 +56,9 @@ COPY --from=builder /app/paybridge /app/paybridge
 
 # Copy config files
 COPY --from=builder /app/configs /app/configs
+
+# Copy webapp for static serving
+COPY --from=builder /app/webapp /app/webapp
 
 # Set ownership
 RUN chown -R appuser:appuser /app

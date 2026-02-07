@@ -93,7 +93,7 @@ func TestNewUserHandler(t *testing.T) {
 	getUser := &MockGetUserUseCase{}
 	listUsers := &MockListUsersUseCase{}
 
-	handler := NewUserHandler(createUser, approveKYC, getUser, listUsers)
+	handler := NewUserHandler(createUser, approveKYC, getUser, listUsers, nil)
 
 	assert.NotNil(t, handler)
 	assert.Equal(t, createUser, handler.createUser)
@@ -121,7 +121,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(mockUseCase, nil, nil, nil)
+		handler := NewUserHandler(mockUseCase, nil, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -138,7 +138,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 	})
 
 	t.Run("ValidationError_MissingEmail", func(t *testing.T) {
-		handler := NewUserHandler(&MockCreateUserUseCase{}, nil, nil, nil)
+		handler := NewUserHandler(&MockCreateUserUseCase{}, nil, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -155,7 +155,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 	})
 
 	t.Run("ValidationError_InvalidEmail", func(t *testing.T) {
-		handler := NewUserHandler(&MockCreateUserUseCase{}, nil, nil, nil)
+		handler := NewUserHandler(&MockCreateUserUseCase{}, nil, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -178,7 +178,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(mockUseCase, nil, nil, nil)
+		handler := NewUserHandler(mockUseCase, nil, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -213,7 +213,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, mockUseCase, nil)
+		handler := NewUserHandler(nil, nil, mockUseCase, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -226,7 +226,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, &MockGetUserUseCase{}, nil)
+		handler := NewUserHandler(nil, nil, &MockGetUserUseCase{}, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -246,7 +246,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, mockUseCase, nil)
+		handler := NewUserHandler(nil, nil, mockUseCase, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -259,7 +259,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 	})
 
 	t.Run("UseCaseNil", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, nil, nil)
+		handler := NewUserHandler(nil, nil, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -290,7 +290,7 @@ func TestUserHandler_ListUsers(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, nil, mockUseCase)
+		handler := NewUserHandler(nil, nil, nil, mockUseCase, nil)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
 
@@ -307,7 +307,7 @@ func TestUserHandler_ListUsers(t *testing.T) {
 	})
 
 	t.Run("UseCaseNil", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, nil, nil)
+		handler := NewUserHandler(nil, nil, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
 
@@ -328,7 +328,7 @@ func TestUserHandler_ListUsers(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, nil, mockUseCase)
+		handler := NewUserHandler(nil, nil, nil, mockUseCase, nil)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
 
@@ -355,7 +355,7 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, mockUseCase, nil, nil)
+		handler := NewUserHandler(nil, mockUseCase, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -372,7 +372,7 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewUserHandler(nil, &MockApproveKYCUseCase{}, nil, nil)
+		handler := NewUserHandler(nil, &MockApproveKYCUseCase{}, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -396,7 +396,7 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, mockUseCase, nil, nil)
+		handler := NewUserHandler(nil, mockUseCase, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -413,7 +413,7 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 	})
 
 	t.Run("UseCaseNil", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, nil, nil)
+		handler := NewUserHandler(nil, nil, nil, nil, nil)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -444,6 +444,7 @@ func TestUserHandler_RegisterRoutes(t *testing.T) {
 		&MockApproveKYCUseCase{},
 		&MockGetUserUseCase{},
 		&MockListUsersUseCase{},
+		nil,
 	)
 
 	handler.RegisterRoutes(apiGroup)

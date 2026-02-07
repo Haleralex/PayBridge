@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PayBridge</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #999999;
+            --tg-theme-link-color: #2481cc;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f0f0f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        .container {
+            max-width: 100%;
+            padding: 16px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--tg-theme-secondary-bg-color);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header .balance {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: var(--tg-theme-button-color);
+        }
+
+        .header .currency {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        /* Wallet Selector */
+        .wallet-selector {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 10px 0;
+            margin-bottom: 20px;
+        }
+
+        .wallet-chip {
+            flex-shrink: 0;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: var(--tg-theme-secondary-bg-color);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .wallet-chip.active {
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+        }
+
+        /* Action Buttons */
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px;
+            border-radius: 16px;
+            background: var(--tg-theme-secondary-bg-color);
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .action-btn .icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .action-btn.deposit .icon { background: #4CAF50; }
+        .action-btn.withdraw .icon { background: #FF9800; }
+        .action-btn.transfer .icon { background: #2196F3; }
+
+        .action-btn span {
+            font-size: 12px;
+            color: var(--tg-theme-text-color);
+        }
+
+        /* Transactions */
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .transactions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tx-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            gap: 12px;
+        }
+
+        .tx-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .tx-icon.credit { background: #E8F5E9; }
+        .tx-icon.debit { background: #FFF3E0; }
+        .tx-icon.transfer { background: #E3F2FD; }
+
+        .tx-info {
+            flex: 1;
+        }
+
+        .tx-info .type {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .tx-info .date {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        .tx-amount {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .tx-amount.positive { color: #4CAF50; }
+        .tx-amount.negative { color: #F44336; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: flex-end;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            width: 100%;
+            background: var(--tg-theme-bg-color);
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--tg-theme-secondary-bg-color);
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+            margin-bottom: 8px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            font-size: 16px;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--tg-theme-button-color);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.5;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--tg-theme-secondary-bg-color);
+            border-top-color: var(--tg-theme-button-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        .empty-state .emoji {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: #333;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>PayBridge</h1>
+            <div class="balance" id="balance">$0.00</div>
+            <div class="currency" id="walletInfo">Loading...</div>
+        </div>
+
+        <!-- Wallet Selector -->
+        <div class="wallet-selector" id="walletSelector">
+            <!-- Wallets will be loaded here -->
+        </div>
+
+        <!-- Actions -->
+        <div class="actions">
+            <button class="action-btn deposit" onclick="openModal('deposit')">
+                <div class="icon">+</div>
+                <span>Deposit</span>
+            </button>
+            <button class="action-btn withdraw" onclick="openModal('withdraw')">
+                <div class="icon">-</div>
+                <span>Withdraw</span>
+            </button>
+            <button class="action-btn transfer" onclick="openModal('transfer')">
+                <div class="icon">↔</div>
+                <span>Transfer</span>
+            </button>
+        </div>
+
+        <!-- Transactions -->
+        <h3 class="section-title">Recent Transactions</h3>
+        <div class="transactions" id="transactions">
+            <div class="loading">
+                <div class="spinner"></div>
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="modalTitle">Deposit</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="operationForm" onsubmit="submitOperation(event)">
+                <div class="form-group">
+                    <label>Amount</label>
+                    <input type="number" id="amount" step="0.01" min="0.01" placeholder="0.00" required>
+                </div>
+                <div class="form-group" id="destinationGroup" style="display:none">
+                    <label>Destination Wallet ID</label>
+                    <input type="text" id="destinationWallet" placeholder="Paste wallet ID here">
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <input type="text" id="description" placeholder="What's this for?">
+                </div>
+                <button type="submit" class="submit-btn" id="submitBtn">Confirm</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Config
+        const API_BASE = window.location.origin + '/api/v1';
+        let AUTH_TOKEN = null;
+
+        console.log('API Base:', API_BASE);
+
+        // State
+        let wallets = [];
+        let currentWallet = null;
+        let currentOperation = null;
+        let currentUser = null;
+
+        // Telegram WebApp
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.expand();
+            tg.ready();
+            // Apply Telegram theme
+            document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
+            document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
+            document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color || '#999999');
+            document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color || '#2481cc');
+            document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color || '#ffffff');
+            document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f0f0f0');
+        }
+
+        // Telegram Auth - authenticate via initData, get personal token
+        async function telegramAuth() {
+            const initData = tg?.initData;
+            if (!initData) {
+                document.getElementById('walletInfo').textContent = 'Open in Telegram to use';
+                showToast('Open this app inside Telegram');
+                return false;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/telegram`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ init_data: initData })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error?.message || 'Auth failed');
+
+                AUTH_TOKEN = data.data.token;
+                currentUser = data.data.user;
+                console.log('Authenticated:', currentUser.full_name, 'New user:', data.data.is_new);
+                return true;
+            } catch (err) {
+                console.error('Auth failed:', err);
+                showToast('Auth error: ' + err.message);
+                return false;
+            }
+        }
+
+        // API Helper
+        async function api(endpoint, options = {}) {
+            if (!AUTH_TOKEN) throw new Error('Not authenticated');
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${AUTH_TOKEN}`,
+                    ...options.headers
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error?.message || 'Request failed');
+            return data;
+        }
+
+        // Generate UUID (simple version)
+        function uuid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+
+        // Load Wallets (auto-creates USD wallet for new users)
+        async function loadWallets() {
+            try {
+                let data = await api('/wallets/me');
+                wallets = data.data?.wallets || [];
+
+                // Auto-create USD wallet if user has none
+                if (wallets.length === 0 && currentUser) {
+                    try {
+                        await api('/wallets', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                user_id: currentUser.id,
+                                currency_code: 'USD'
+                            })
+                        });
+                        // Reload wallets
+                        data = await api('/wallets/me');
+                        wallets = data.data?.wallets || [];
+                    } catch (e) {
+                        console.log('Auto-create wallet failed:', e.message);
+                    }
+                }
+
+                if (wallets.length === 0) {
+                    document.getElementById('walletSelector').innerHTML = `
+                        <div class="empty-state">
+                            <div class="emoji">👛</div>
+                            <p>No wallets yet</p>
+                        </div>
+                    `;
+                    document.getElementById('balance').textContent = '$0.00';
+                    document.getElementById('walletInfo').textContent = 'No wallet selected';
+                    return;
+                }
+
+                renderWalletSelector();
+                selectWallet(wallets[0]);
+            } catch (err) {
+                showToast('Failed to load wallets: ' + err.message);
+                document.getElementById('balance').textContent = 'Error';
+                document.getElementById('walletInfo').textContent = err.message;
+            }
+        }
+
+        // Parse balance (handles "1000.00 USD" format)
+        function parseBalance(balanceStr) {
+            if (!balanceStr) return 0;
+            return parseFloat(balanceStr.replace(/[^0-9.-]/g, '')) || 0;
+        }
+
+        // Render Wallet Selector
+        function renderWalletSelector() {
+            const container = document.getElementById('walletSelector');
+            container.innerHTML = wallets.map(w => `
+                <div class="wallet-chip ${currentWallet?.id === w.id ? 'active' : ''}"
+                     onclick="selectWallet(wallets.find(x => x.id === '${w.id}'))">
+                    ${w.currency_code}
+                </div>
+            `).join('');
+        }
+
+        // Select Wallet
+        function selectWallet(wallet) {
+            currentWallet = wallet;
+            renderWalletSelector();
+            updateBalance();
+            loadTransactions();
+        }
+
+        // Update Balance Display
+        function updateBalance() {
+            if (!currentWallet) return;
+            const symbol = currentWallet.currency_code === 'USD' ? '$' :
+                          currentWallet.currency_code === 'EUR' ? '€' :
+                          currentWallet.currency_code === 'RUB' ? '₽' : '';
+            const balance = parseBalance(currentWallet.available_balance);
+            document.getElementById('balance').textContent = `${symbol}${balance.toFixed(2)}`;
+            const shortId = currentWallet.id.slice(0, 8) + '...';
+            document.getElementById('walletInfo').innerHTML =
+                `${currentWallet.currency_code} Wallet • <span onclick="copyWalletId()" style="cursor:pointer;text-decoration:underline" title="Tap to copy full ID">ID: ${shortId}</span>`;
+        }
+
+        // Load Transactions
+        async function loadTransactions() {
+            const container = document.getElementById('transactions');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const data = await api(`/wallets/${currentWallet.id}/transactions`);
+                const transactions = data.data?.transactions || [];
+
+                if (transactions.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="emoji">📭</div>
+                            <p>No transactions yet</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = transactions.slice(0, 10).map(tx => {
+                    const isCredit = tx.type === 'CREDIT';
+                    const isDebit = tx.type === 'DEBIT';
+                    const isTransfer = tx.type === 'TRANSFER';
+
+                    return `
+                        <div class="tx-item">
+                            <div class="tx-icon ${tx.type.toLowerCase()}">
+                                ${isCredit ? '+' : isDebit ? '-' : '↔'}
+                            </div>
+                            <div class="tx-info">
+                                <div class="type">${tx.description || tx.type}</div>
+                                <div class="date">${new Date(tx.created_at).toLocaleDateString()}</div>
+                            </div>
+                            <div class="tx-amount ${isCredit ? 'positive' : 'negative'}">
+                                ${isCredit ? '+' : '-'}${tx.amount}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="emoji">😕</div>
+                        <p>Could not load transactions</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Modal Functions
+        function openModal(operation) {
+            currentOperation = operation;
+            const titles = {
+                deposit: 'Deposit Funds',
+                withdraw: 'Withdraw Funds',
+                transfer: 'Transfer Money'
+            };
+            document.getElementById('modalTitle').textContent = titles[operation];
+            document.getElementById('destinationGroup').style.display =
+                operation === 'transfer' ? 'block' : 'none';
+
+            // Clear destination input for transfer
+            if (operation === 'transfer') {
+                document.getElementById('destinationWallet').value = '';
+            }
+
+            document.getElementById('modalOverlay').classList.add('active');
+            document.getElementById('amount').focus();
+        }
+
+        function closeModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('modalOverlay').classList.remove('active');
+            document.getElementById('operationForm').reset();
+        }
+
+        // Submit Operation
+        async function submitOperation(event) {
+            event.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+
+            const amount = document.getElementById('amount').value;
+            const description = document.getElementById('description').value || 'Web App Operation';
+            const idempotencyKey = uuid();
+
+            try {
+                let endpoint, body;
+
+                switch (currentOperation) {
+                    case 'deposit':
+                        endpoint = `/wallets/${currentWallet.id}/credit`;
+                        body = { amount, idempotency_key: idempotencyKey, description };
+                        break;
+                    case 'withdraw':
+                        endpoint = `/wallets/${currentWallet.id}/debit`;
+                        body = { amount, idempotency_key: idempotencyKey, description };
+                        break;
+                    case 'transfer':
+                        const destWallet = document.getElementById('destinationWallet').value;
+                        if (!destWallet) {
+                            throw new Error('Please select destination wallet');
+                        }
+                        endpoint = `/wallets/${currentWallet.id}/transfer`;
+                        body = {
+                            destination_wallet_id: destWallet,
+                            amount,
+                            idempotency_key: idempotencyKey,
+                            description
+                        };
+                        break;
+                }
+
+                const result = await api(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                });
+
+                // Update balance from response (handle different response structures)
+                if (result.data?.wallet?.available_balance) {
+                    currentWallet.available_balance = result.data.wallet.available_balance;
+                } else if (result.data?.source_wallet?.available_balance) {
+                    currentWallet.available_balance = result.data.source_wallet.available_balance;
+                }
+
+                updateBalance();
+                loadTransactions();
+                closeModal();
+                showToast('Operation successful!');
+
+                // Haptic feedback
+                if (tg) tg.HapticFeedback.notificationOccurred('success');
+
+            } catch (err) {
+                showToast('Error: ' + err.message);
+                if (tg) tg.HapticFeedback.notificationOccurred('error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Confirm';
+            }
+        }
+
+        // Toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Copy wallet ID to clipboard
+        function copyWalletId() {
+            if (!currentWallet) return;
+            navigator.clipboard.writeText(currentWallet.id).then(() => {
+                showToast('Wallet ID copied!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const tmp = document.createElement('textarea');
+                tmp.value = currentWallet.id;
+                document.body.appendChild(tmp);
+                tmp.select();
+                document.execCommand('copy');
+                document.body.removeChild(tmp);
+                showToast('Wallet ID copied!');
+            });
+        }
+
+        // Init - authenticate first, then load wallets
+        document.addEventListener('DOMContentLoaded', async () => {
+            const authenticated = await telegramAuth();
+            if (authenticated) {
+                await loadWallets();
+            }
+        });
+    </script>
+</body>
+</html>

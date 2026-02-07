@@ -1,15 +1,17 @@
 // Package middleware - Authentication middleware.
 //
-// Это базовая реализация auth middleware.
-// В production следует использовать JWT/OAuth2/API Keys.
+// Production-ready auth middleware с поддержкой JWT (HS256).
+// MockTokenValidator оставлен ТОЛЬКО для development/test.
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -191,6 +193,78 @@ func GetAuthUserRole(c *gin.Context) string {
 		}
 	}
 	return ""
+}
+
+// ============================================
+// Development/Testing Helpers
+// ============================================
+
+// ============================================
+// JWT Token Validator (Production)
+// ============================================
+
+// NewJWTTokenValidator creates a production JWT token validator.
+// Uses HS256 signing method with the provided secret.
+func NewJWTTokenValidator(secret string, issuer string) func(token string) (*AuthClaims, error) {
+	return func(tokenString string) (*AuthClaims, error) {
+		parsed, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(secret), nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse token: %w", err)
+		}
+
+		claims, ok := parsed.Claims.(jwt.MapClaims)
+		if !ok || !parsed.Valid {
+			return nil, fmt.Errorf("invalid token claims")
+		}
+
+		// Validate issuer if configured
+		if issuer != "" {
+			if iss, _ := claims["iss"].(string); iss != issuer {
+				return nil, fmt.Errorf("invalid token issuer")
+			}
+		}
+
+		userID, _ := claims["sub"].(string)
+		email, _ := claims["email"].(string)
+		role, _ := claims["role"].(string)
+
+		if userID == "" {
+			return nil, fmt.Errorf("missing user ID (sub) in token")
+		}
+
+		exp := time.Time{}
+		if expFloat, ok := claims["exp"].(float64); ok {
+			exp = time.Unix(int64(expFloat), 0)
+		}
+
+		return &AuthClaims{
+			UserID: userID,
+			Email:  email,
+			Role:   role,
+			Exp:    exp,
+		}, nil
+	}
+}
+
+// GenerateJWT creates a signed JWT token with HS256.
+func GenerateJWT(secret, issuer, userID, email, role string, expiry time.Duration) (string, error) {
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"sub":   userID,
+		"email": email,
+		"role":  role,
+		"iss":   issuer,
+		"iat":   now.Unix(),
+		"exp":   now.Add(expiry).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
 }
 
 // ============================================

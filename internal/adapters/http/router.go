@@ -10,10 +10,12 @@ package http
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
 	"github.com/Haleralex/wallethub/internal/adapters/http/handlers"
 	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
+	"github.com/Haleralex/wallethub/internal/application/ports"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,6 +41,12 @@ type RouterConfig struct {
 	AllowedOrigins []string
 	// AuthTokenValidator - функция валидации токена
 	AuthTokenValidator func(token string) (*middleware.AuthClaims, error)
+	// TelegramBotToken - Telegram bot token for Mini App auth validation
+	TelegramBotToken string
+	// JWTSecret - secret for signing JWT tokens (used by Telegram auth handler)
+	JWTSecret string
+	// JWTIssuer - issuer claim for JWT tokens
+	JWTIssuer string
 }
 
 // DefaultRouterConfig - конфигурация по умолчанию для development.
@@ -63,6 +71,7 @@ type UserUseCases struct {
 	ApproveKYC handlers.ApproveKYCUseCase
 	GetUser    handlers.GetUserUseCase
 	ListUsers  handlers.ListUsersUseCase
+	StartKYC   handlers.StartKYCUseCase
 }
 
 // WalletUseCases - provider для wallet use cases.
@@ -77,15 +86,22 @@ type WalletUseCases struct {
 
 // TransactionUseCases - provider для transaction use cases.
 type TransactionUseCases struct {
-	GetTransaction    handlers.GetTransactionUseCase
-	ListTransactions  handlers.ListTransactionsUseCase
-	RetryTransaction  handlers.RetryTransactionUseCase
-	CancelTransaction handlers.CancelTransactionUseCase
+	GetTransaction      handlers.GetTransactionUseCase
+	ListTransactions    handlers.ListTransactionsUseCase
+	RetryTransaction    handlers.RetryTransactionUseCase
+	CancelTransaction   handlers.CancelTransactionUseCase
+	GetByIdempotencyKey handlers.GetTransactionByIdempotencyKeyUseCase
 }
 
 // ============================================
 // Router Builder
 // ============================================
+
+// TelegramAuthDeps - dependencies for Telegram auth handler.
+type TelegramAuthDeps struct {
+	UserRepo   ports.UserRepository
+	WalletRepo ports.WalletRepository
+}
 
 // RouterBuilder - builder для создания роутера.
 //
@@ -98,6 +114,7 @@ type RouterBuilder struct {
 	users        *UserUseCases
 	wallets      *WalletUseCases
 	transactions *TransactionUseCases
+	telegramAuth *TelegramAuthDeps
 }
 
 // NewRouterBuilder создаёт новый builder.
@@ -125,6 +142,12 @@ func (b *RouterBuilder) WithWalletUseCases(useCases *WalletUseCases) *RouterBuil
 // WithTransactionUseCases добавляет transaction use cases.
 func (b *RouterBuilder) WithTransactionUseCases(useCases *TransactionUseCases) *RouterBuilder {
 	b.transactions = useCases
+	return b
+}
+
+// WithTelegramAuth добавляет Telegram auth dependencies.
+func (b *RouterBuilder) WithTelegramAuth(deps *TelegramAuthDeps) *RouterBuilder {
+	b.telegramAuth = deps
 	return b
 }
 
@@ -206,8 +229,22 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				b.users.ApproveKYC,
 				b.users.GetUser,
 				b.users.ListUsers,
+				b.users.StartKYC,
 			)
 			publicGroup.POST("/users", userHandler.CreateUser)
+		}
+
+		// Telegram Mini App authentication (public)
+		if b.telegramAuth != nil {
+			tgHandler := handlers.NewTelegramAuthHandler(handlers.TelegramAuthConfig{
+				UserRepo:    b.telegramAuth.UserRepo,
+				WalletRepo:  b.telegramAuth.WalletRepo,
+				BotToken:    b.config.TelegramBotToken,
+				JWTSecret:   b.config.JWTSecret,
+				JWTIssuer:   b.config.JWTIssuer,
+				TokenExpiry: 15 * time.Minute,
+			})
+			publicGroup.POST("/auth/telegram", tgHandler.Authenticate)
 		}
 	}
 
@@ -225,6 +262,7 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				b.users.ApproveKYC,
 				b.users.GetUser,
 				b.users.ListUsers,
+				b.users.StartKYC,
 			)
 			users := protectedGroup.Group("/users")
 			{
@@ -270,6 +308,7 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				b.transactions.ListTransactions,
 				b.transactions.RetryTransaction,
 				b.transactions.CancelTransaction,
+				b.transactions.GetByIdempotencyKey,
 			)
 			transactions := protectedGroup.Group("/transactions")
 			{
@@ -280,9 +319,9 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				transactions.POST("/:id/cancel", txHandler.CancelTransaction)
 			}
 
-			// Nested route: /wallets/:wallet_id/transactions
+			// Nested route: /wallets/:id/transactions (uses :id to match other wallet routes)
 			if b.wallets != nil {
-				protectedGroup.GET("/wallets/:wallet_id/transactions", txHandler.GetWalletTransactions)
+				protectedGroup.GET("/wallets/:id/transactions", txHandler.GetWalletTransactions)
 			}
 		}
 	}
@@ -300,6 +339,13 @@ func (b *RouterBuilder) Build() *gin.Engine {
 		// Admin-only endpoints можно добавить здесь
 		// Например: просмотр всех транзакций, изменение лимитов и т.д.
 	}
+
+	// ============================================
+	// Static Files (Webapp / Telegram Mini App)
+	// ============================================
+
+	// Serve webapp at /app
+	router.Static("/app", "./webapp")
 
 	// ============================================
 	// 404 Handler

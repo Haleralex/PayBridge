@@ -146,7 +146,7 @@ func ExecuteWithRetry(
 		case *CreateTransactionUseCase:
 			result, err = uc.Execute(ctx, cmd.(dtos.CreateTransactionCommand))
 		case *TransferBetweenWalletsUseCase:
-			result, err = uc.Execute(ctx, cmd.(dtos.TransferBetweenWalletsCommand))
+			result, err = uc.Execute(ctx, cmd.(dtos.TransferFundsCommand))
 		default:
 			return nil, fmt.Errorf("unsupported use case type")
 		}

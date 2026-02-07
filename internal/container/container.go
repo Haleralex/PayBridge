@@ -56,12 +56,22 @@ type Container struct {
 	// Use Cases
 	createUserUC             *user.CreateUserUseCase
 	approveKYCUC             *user.ApproveKYCUseCase
+	getUserUC                *user.GetUserUseCase
+	listUsersUC              *user.ListUsersUseCase
+	startKYCUC               *user.StartKYCUseCase
 	createWalletUC           *wallet.CreateWalletUseCase
 	creditWalletUC           *wallet.CreditWalletUseCase
+	debitWalletUC            *wallet.DebitWalletUseCase
+	getWalletUC              *wallet.GetWalletUseCase
+	listWalletsUC            *wallet.ListWalletsUseCase
 	createTransactionUC      *transaction.CreateTransactionUseCase
 	processTransactionUC     *transaction.ProcessTransactionUseCase
 	cancelTransactionUC      *transaction.CancelTransactionUseCase
 	transferBetweenWalletsUC *transaction.TransferBetweenWalletsUseCase
+	getByIdempotencyKeyUC   *transaction.GetTransactionByIdempotencyKeyUseCase
+	getTransactionUC        *transaction.GetTransactionUseCase
+	listTransactionsUC      *transaction.ListTransactionsUseCase
+	retryTransactionUC      *transaction.RetryTransactionUseCase
 
 	// HTTP
 	httpServer *http.Server
@@ -184,10 +194,16 @@ func (c *Container) initUseCases() {
 	// User Use Cases
 	c.createUserUC = user.NewCreateUserUseCase(c.userRepo, c.eventPublisher, c.uow)
 	c.approveKYCUC = user.NewApproveKYCUseCase(c.userRepo, c.eventPublisher, c.uow)
+	c.getUserUC = user.NewGetUserUseCase(c.userRepo)
+	c.listUsersUC = user.NewListUsersUseCase(c.userRepo)
+	c.startKYCUC = user.NewStartKYCUseCase(c.userRepo, c.eventPublisher, c.uow)
 
 	// Wallet Use Cases
 	c.createWalletUC = wallet.NewCreateWalletUseCase(c.userRepo, c.walletRepo, c.eventPublisher, c.uow)
 	c.creditWalletUC = wallet.NewCreditWalletUseCase(c.walletRepo, c.transactionRepo, c.eventPublisher, c.uow)
+	c.debitWalletUC = wallet.NewDebitWalletUseCase(c.walletRepo, c.transactionRepo, c.eventPublisher, c.uow)
+	c.getWalletUC = wallet.NewGetWalletUseCase(c.walletRepo)
+	c.listWalletsUC = wallet.NewListWalletsUseCase(c.walletRepo)
 
 	// Transaction Use Cases
 	c.createTransactionUC = transaction.NewCreateTransactionUseCase(
@@ -214,6 +230,10 @@ func (c *Container) initUseCases() {
 		c.eventPublisher,
 		c.uow,
 	)
+	c.getByIdempotencyKeyUC = transaction.NewGetTransactionByIdempotencyKeyUseCase(c.transactionRepo)
+	c.getTransactionUC = transaction.NewGetTransactionUseCase(c.transactionRepo)
+	c.listTransactionsUC = transaction.NewListTransactionsUseCase(c.transactionRepo)
+	c.retryTransactionUC = transaction.NewRetryTransactionUseCase(c.walletRepo, c.transactionRepo, c.eventPublisher, c.uow)
 }
 
 // initHTTPServer инициализирует HTTP сервер.
@@ -221,9 +241,16 @@ func (c *Container) initHTTPServer() {
 	// Token validator
 	var tokenValidator func(token string) (*middleware.AuthClaims, error)
 	if c.config.Auth.EnableMockAuth {
+		c.logger.Warn("Using mock auth — ONLY for development!")
 		tokenValidator = middleware.MockTokenValidator
+	} else {
+		// Real JWT validator for production
+		tokenValidator = middleware.NewJWTTokenValidator(
+			c.config.Auth.JWTSecret,
+			c.config.Auth.JWTIssuer,
+		)
+		c.logger.Info("Using real JWT authentication")
 	}
-	// В production здесь будет реальный JWT validator
 
 	// Router Config
 	routerConfig := &http.RouterConfig{
@@ -234,6 +261,9 @@ func (c *Container) initHTTPServer() {
 		Environment:        c.config.App.Environment,
 		AllowedOrigins:     c.config.CORS.AllowedOrigins,
 		AuthTokenValidator: tokenValidator,
+		TelegramBotToken:   c.config.Auth.TelegramBotToken,
+		JWTSecret:          c.config.Auth.JWTSecret,
+		JWTIssuer:          c.config.Auth.JWTIssuer,
 	}
 
 	// Build Router
@@ -241,11 +271,28 @@ func (c *Container) initHTTPServer() {
 		WithUserUseCases(&http.UserUseCases{
 			CreateUser: c.createUserUC,
 			ApproveKYC: c.approveKYCUC,
+			GetUser:    c.getUserUC,
+			ListUsers:  c.listUsersUC,
+			StartKYC:   c.startKYCUC,
 		}).
 		WithWalletUseCases(&http.WalletUseCases{
-			CreateWallet: c.createWalletUC,
-			CreditWallet: c.creditWalletUC,
-			// TransferFunds not wired - interface mismatch, needs adapter
+			CreateWallet:  c.createWalletUC,
+			CreditWallet:  c.creditWalletUC,
+			DebitWallet:   c.debitWalletUC,
+			TransferFunds: c.transferBetweenWalletsUC,
+			GetWallet:     c.getWalletUC,
+			ListWallets:   c.listWalletsUC,
+		}).
+		WithTransactionUseCases(&http.TransactionUseCases{
+			GetTransaction:      c.getTransactionUC,
+			ListTransactions:    c.listTransactionsUC,
+			RetryTransaction:    c.retryTransactionUC,
+			CancelTransaction:   c.cancelTransactionUC,
+			GetByIdempotencyKey: c.getByIdempotencyKeyUC,
+		}).
+		WithTelegramAuth(&http.TelegramAuthDeps{
+			UserRepo:   c.userRepo,
+			WalletRepo: c.walletRepo,
 		}).
 		Build()
 
@@ -333,6 +380,21 @@ func (c *Container) CreateWalletUseCase() *wallet.CreateWalletUseCase {
 // CreditWalletUseCase возвращает use case пополнения кошелька.
 func (c *Container) CreditWalletUseCase() *wallet.CreditWalletUseCase {
 	return c.creditWalletUC
+}
+
+// DebitWalletUseCase возвращает use case списания с кошелька.
+func (c *Container) DebitWalletUseCase() *wallet.DebitWalletUseCase {
+	return c.debitWalletUC
+}
+
+// GetWalletUseCase возвращает use case получения кошелька.
+func (c *Container) GetWalletUseCase() *wallet.GetWalletUseCase {
+	return c.getWalletUC
+}
+
+// ListWalletsUseCase возвращает use case списка кошельков.
+func (c *Container) ListWalletsUseCase() *wallet.ListWalletsUseCase {
+	return c.listWalletsUC
 }
 
 // TransferBetweenWalletsUseCase возвращает use case перевода между кошельками.

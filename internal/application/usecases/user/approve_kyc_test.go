@@ -41,6 +41,10 @@ func (m *mockUserRepoForKYC) ExistsByEmail(ctx context.Context, email string) (b
 	return false, nil
 }
 
+func (m *mockUserRepoForKYC) FindByTelegramID(ctx context.Context, telegramID int64) (*entities.User, error) {
+	return nil, domainErrors.ErrEntityNotFound
+}
+
 func (m *mockUserRepoForKYC) List(ctx context.Context, offset, limit int) ([]*entities.User, error) {
 	return nil, nil
 }
@@ -90,7 +94,7 @@ func TestApproveKYCUseCase_Success_Approved(t *testing.T) {
 
 	// Создаем пользователя в статусе PENDING
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, nil, time.Now(), time.Now())
 	_ = user.StartKYCVerification() // Переводим в PENDING
 
 	var savedUser *entities.User
@@ -158,7 +162,7 @@ func TestApproveKYCUseCase_Success_Rejected(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, nil, time.Now(), time.Now())
 	_ = user.StartKYCVerification()
 
 	var savedUser *entities.User
@@ -309,7 +313,7 @@ func TestApproveKYCUseCase_UserNotInPendingStatus(t *testing.T) {
 			userID := uuid.New()
 
 			user, _ := entities.NewUser("test@example.com", "Test User")
-			user = entities.ReconstructUser(userID, user.Email(), user.FullName(), tt.kycStatus, time.Now(), time.Now())
+			user = entities.ReconstructUser(userID, user.Email(), user.FullName(), tt.kycStatus, nil, time.Now(), time.Now())
 
 			userRepo := &mockUserRepoForKYC{
 				findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.User, error) {
@@ -389,7 +393,7 @@ func TestApproveKYCUseCase_SaveError(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, nil, time.Now(), time.Now())
 	_ = user.StartKYCVerification()
 
 	userRepo := &mockUserRepoForKYC{
@@ -431,7 +435,7 @@ func TestApproveKYCUseCase_EventPublishError(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, nil, time.Now(), time.Now())
 	_ = user.StartKYCVerification()
 
 	userRepo := &mockUserRepoForKYC{
@@ -478,7 +482,7 @@ func TestApproveKYCUseCase_TransactionRollback(t *testing.T) {
 	userID := uuid.New()
 
 	user, _ := entities.NewUser("test@example.com", "Test User")
-	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, user.Email(), user.FullName(), entities.KYCStatusUnverified, nil, time.Now(), time.Now())
 	_ = user.StartKYCVerification()
 
 	userRepo := &mockUserRepoForKYC{
@@ -531,7 +535,7 @@ func TestApproveKYCUseCase_ResultContainsCorrectData(t *testing.T) {
 	fullName := "Test User"
 
 	user, _ := entities.NewUser(email, fullName)
-	user = entities.ReconstructUser(userID, email, fullName, entities.KYCStatusUnverified, time.Now(), time.Now())
+	user = entities.ReconstructUser(userID, email, fullName, entities.KYCStatusUnverified, nil, time.Now(), time.Now())
 	_ = user.StartKYCVerification()
 
 	userRepo := &mockUserRepoForKYC{
