@@ -75,12 +75,12 @@ jobs:
 
     - name: Run migrations
       env:
-        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wallethub_test?sslmode=disable"
+        PGPASSWORD: postgres
       run: |
-        # Применяем миграции
-        for migration in migrations/*_up.sql; do
+        # Применяем миграции в правильном порядке
+        find migrations -name '*_up.sql' -type f | sort | while read migration; do
           echo "Applying migration: $migration"
-          PGPASSWORD=postgres psql -h localhost -U postgres -d wallethub_test -f "$migration"
+          psql -h localhost -U postgres -d wallethub_test -f "$migration"
         done
 
     - name: Run integration tests
