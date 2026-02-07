@@ -47,24 +47,21 @@ jobs:
       
       - name: Run migrations
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db?sslmode=disable
+          PGPASSWORD: postgres
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db < internal/infrastructure/persistence/migrations/001_create_users_up.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db < internal/infrastructure/persistence/migrations/002_create_wallets_up.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db < internal/infrastructure/persistence/migrations/003_create_transactions_up.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db < internal/infrastructure/persistence/migrations/004_create_outbox_up.sql
-      
-      - name: Run unit tests
-        run: go test -v -short -race ./internal/domain/... ./internal/application/...
-      
-      - name: Run integration tests
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db?sslmode=disable
-        run: go test -v -race ./internal/infrastructure/...
+          psql -h localhost -U postgres -d test_db -f migrations/000001_create_users.up.sql
+          psql -h localhost -U postgres -d test_db -f migrations/000002_create_wallets.up.sql
+          psql -h localhost -U postgres -d test_db -f migrations/000003_create_transactions.up.sql
+          psql -h localhost -U postgres -d test_db -f migrations/000004_create_outbox.up.sql
+          psql -h localhost -U postgres -d test_db -f migrations/000005_add_telegram_id.up.sql
       
       - name: Run all tests with coverage
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db?sslmode=disable
+          TEST_DB_HOST: localhost
+          TEST_DB_PORT: 5432
+          TEST_DB_NAME: test_db
+          TEST_DB_USER: postgres
+          TEST_DB_PASSWORD: postgres
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
       
       - name: Generate coverage report
