@@ -77,26 +77,18 @@ jobs:
       env:
         PGPASSWORD: postgres
       run: |
-        echo "Checking migrations directory..."
+        echo "=== MIGRATION STEP START ==="
+        pwd
         ls -la migrations/
-        echo "---"
         
-        echo "Current directory: $(pwd)"
-        echo "Testing ls for *_up.sql files..."
-        ls -1 migrations/*_up.sql 2>&1 | head -5
-        echo "---"
+        echo "=== APPLYING MIGRATIONS ==="
+        psql -h localhost -U postgres -d wallethub_test -f migrations/000001_create_users.up.sql
+        psql -h localhost -U postgres -d wallethub_test -f migrations/000002_create_wallets.up.sql
+        psql -h localhost -U postgres -d wallethub_test -f migrations/000003_create_transactions.up.sql
+        psql -h localhost -U postgres -d wallethub_test -f migrations/000004_create_outbox.up.sql
+        psql -h localhost -U postgres -d wallethub_test -f migrations/000005_add_telegram_id.up.sql
         
-        echo "Applying migrations..."
-        # Используем ls напрямую с сортировкой
-        ls -1 migrations/*_up.sql | sort | while read migration; do
-          echo ">> Applying: $migration"
-          psql -h localhost -U postgres -d wallethub_test -f "$migration" || {
-            echo "ERROR: Failed to apply migration: $migration"
-            exit 1
-          }
-        done
-        
-        echo "✓ All migrations applied successfully"
+        echo "=== MIGRATIONS APPLIED ==="
 
     - name: Run integration tests
       env:
