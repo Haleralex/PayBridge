@@ -92,7 +92,11 @@ jobs:
 
     - name: Run integration tests
       env:
-        TEST_DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wallethub_test?sslmode=disable"
+        TEST_DB_HOST: localhost
+        TEST_DB_PORT: 5432
+        TEST_DB_NAME: wallethub_test
+        TEST_DB_USER: postgres
+        TEST_DB_PASSWORD: postgres
       run: |
         echo "Running integration tests (with real PostgreSQL)..."
         go test -tags=integration -v -race -coverprofile=coverage_integration.out -covermode=atomic ./internal/application/usecases/transaction/...
