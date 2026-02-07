@@ -82,15 +82,7 @@ jobs:
         echo "---"
         
         # Применяем миграции в правильном порядке
-        shopt -s nullglob
-        migrations=(migrations/*_up.sql)
-        
-        if [ ${#migrations[@]} -eq 0 ]; then
-          echo "ERROR: No migration files found"
-          exit 1
-        fi
-        
-        for migration in "${migrations[@]}"; do
+        for migration in $(find migrations -maxdepth 1 -name '*_up.sql' -type f | sort); do
           echo "Applying migration: $migration"
           psql -h localhost -U postgres -d wallethub_test -f "$migration" || {
             echo "ERROR: Failed to apply migration: $migration"
