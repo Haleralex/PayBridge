@@ -81,16 +81,27 @@ jobs:
         ls -la migrations/
         echo "---"
         
-        # Применяем миграции в правильном порядке
-        for migration in $(find migrations -maxdepth 1 -name '*_up.sql' -type f | sort); do
-          echo "Applying migration: $migration"
+        echo "Finding migration files..."
+        MIGRATIONS=$(find migrations -maxdepth 1 -name '*_up.sql' -type f | sort)
+        echo "Found migrations:"
+        echo "$MIGRATIONS"
+        
+        if [ -z "$MIGRATIONS" ]; then
+          echo "ERROR: No migration files found!"
+          exit 1
+        fi
+        
+        echo "---"
+        echo "Applying migrations..."
+        for migration in $MIGRATIONS; do
+          echo ">> Applying: $migration"
           psql -h localhost -U postgres -d wallethub_test -f "$migration" || {
             echo "ERROR: Failed to apply migration: $migration"
             exit 1
           }
         done
         
-        echo "All migrations applied successfully"
+        echo "✓ All migrations applied successfully"
 
     - name: Run integration tests
       env:
