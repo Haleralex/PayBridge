@@ -78,7 +78,7 @@ jobs:
         DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wallethub_test?sslmode=disable"
       run: |
         # Применяем миграции
-        for migration in internal/infrastructure/persistence/migrations/*_up.sql; do
+        for migration in migrations/*_up.sql; do
           echo "Applying migration: $migration"
           PGPASSWORD=postgres psql -h localhost -U postgres -d wallethub_test -f "$migration"
         done
