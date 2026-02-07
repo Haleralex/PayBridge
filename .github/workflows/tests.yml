@@ -77,11 +77,25 @@ jobs:
       env:
         PGPASSWORD: postgres
       run: |
+        echo "Checking migrations directory..."
+        ls -la migrations/
+        echo "---"
+        
         # Применяем миграции в правильном порядке
-        find migrations -name '*_up.sql' -type f | sort | while read migration; do
-          echo "Applying migration: $migration"
-          psql -h localhost -U postgres -d wallethub_test -f "$migration"
+        for migration in migrations/*_up.sql; do
+          if [ -f "$migration" ]; then
+            echo "Applying migration: $migration"
+            psql -h localhost -U postgres -d wallethub_test -f "$migration" || {
+              echo "ERROR: Failed to apply migration: $migration"
+              exit 1
+            }
+          else
+            echo "ERROR: No migration files found in migrations/"
+            exit 1
+          fi
         done
+        
+        echo "All migrations applied successfully"
 
     - name: Run integration tests
       env:
