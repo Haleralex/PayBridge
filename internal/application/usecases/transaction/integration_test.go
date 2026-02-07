@@ -213,7 +213,7 @@ func TestCreateTransactionUseCase_Integration_Deposit_Success(t *testing.T) {
 	}
 
 	// 5. Проверка что транзакция действительно сохранена в БД
-	txID, err := uuid.Parse(result.TransactionID)
+	txID, err := uuid.Parse(result.ID)
 	if err != nil {
 		t.Fatalf("Failed to parse transaction ID: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestCreateTransactionUseCase_Integration_Withdraw_Success(t *testing.T) {
 	}
 
 	// 5. Проверка транзакции в БД
-	txID, err := uuid.Parse(result.TransactionID)
+	txID, err := uuid.Parse(result.ID)
 	if err != nil {
 		t.Fatalf("Failed to parse transaction ID: %v", err)
 	}
