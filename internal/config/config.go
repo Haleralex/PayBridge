@@ -118,7 +118,8 @@ type AuthConfig struct {
 	JWTIssuer          string        `mapstructure:"jwt_issuer"`
 	AccessTokenExpiry  time.Duration `mapstructure:"access_token_expiry"`
 	RefreshTokenExpiry time.Duration `mapstructure:"refresh_token_expiry"`
-	EnableMockAuth     bool          `mapstructure:"enable_mock_auth"` // Только для development!
+	EnableMockAuth     bool          `mapstructure:"enable_mock_auth"`   // Только для development!
+	TelegramBotToken   string        `mapstructure:"telegram_bot_token"` // Telegram bot token for Mini App auth
 }
 
 // ============================================
@@ -378,7 +379,7 @@ func Development() *Config {
 			Host:            "localhost",
 			Port:            5432,
 			User:            "postgres",
-			Password:        "postgres",
+			Password:        "postgres", // Dev only - override in production!
 			Database:        "paybridge",
 			SSLMode:         "disable",
 			MaxConnections:  10,

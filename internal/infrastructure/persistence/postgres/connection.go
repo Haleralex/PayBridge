@@ -35,13 +35,15 @@ type Config struct {
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию.
+// WARNING: Contains default credentials for local development only!
+// NEVER use these values in production - always override with environment variables.
 func DefaultConfig() Config {
 	return Config{
 		Host:            "localhost",
 		Port:            5432,
 		Database:        "wallethub",
 		User:            "postgres",
-		Password:        "postgres",
+		Password:        "postgres", // Dev only - override in production!
 		SSLMode:         "disable",
 		MaxConns:        25,
 		MinConns:        5,
