@@ -88,6 +88,9 @@ jobs:
         psql -h localhost -U postgres -d wallethub_test -f migrations/000004_create_outbox.up.sql
         psql -h localhost -U postgres -d wallethub_test -f migrations/000005_add_telegram_id.up.sql
         
+        echo "=== VERIFYING TABLES ==="
+        psql -h localhost -U postgres -d wallethub_test -c "\dt"
+        
         echo "=== MIGRATIONS APPLIED ==="
 
     - name: Run integration tests
