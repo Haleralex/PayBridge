@@ -499,7 +499,7 @@ func TestTransferBetweenWalletsUseCase_Integration_Success(t *testing.T) {
 	destinationWallet := createTestWalletIntegration(t, ctx, destinationUser.ID(), "USD", "500.00")
 
 	// 3. Выполняем TRANSFER через use case (используем TransferBetweenWalletsCommand!)
-	cmd := dtos.TransferBetweenWalletsCommand{
+	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWallet.ID().String(),
 		DestinationWalletID: destinationWallet.ID().String(),
 		IdempotencyKey:      uuid.New().String(),
@@ -575,7 +575,7 @@ func TestTransferBetweenWalletsUseCase_Integration_CurrencyMismatch(t *testing.T
 	destinationWallet := createTestWalletIntegration(t, ctx, destinationUser.ID(), "EUR", "500.00")
 
 	// 3. Пытаемся сделать TRANSFER между кошельками с разными валютами
-	cmd := dtos.TransferBetweenWalletsCommand{
+	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWallet.ID().String(),
 		DestinationWalletID: destinationWallet.ID().String(),
 		IdempotencyKey:      uuid.New().String(),

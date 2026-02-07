@@ -292,6 +292,7 @@ func TestReconstructUser(t *testing.T) {
 		user.Email(),
 		user.FullName(),
 		user.KYCStatus(),
+		nil,
 		user.CreatedAt(),
 		user.UpdatedAt(),
 	)
@@ -351,6 +352,7 @@ func TestUser_ApproveKYC_WhenNotPending(t *testing.T) {
 				user.Email(),
 				user.FullName(),
 				tt.status,
+				nil,
 				user.CreatedAt(),
 				user.UpdatedAt(),
 			)
@@ -442,6 +444,7 @@ func TestUser_CanCreateWallet_AllStatuses(t *testing.T) {
 				user.Email(),
 				user.FullName(),
 				tt.status,
+				nil,
 				user.CreatedAt(),
 				user.UpdatedAt(),
 			)
@@ -487,6 +490,7 @@ func TestUser_IsVerified_AllStatuses(t *testing.T) {
 				user.Email(),
 				user.FullName(),
 				tt.status,
+				nil,
 				user.CreatedAt(),
 				user.UpdatedAt(),
 			)

@@ -63,7 +63,7 @@ func TestTransferBetweenWalletsUseCase_Success(t *testing.T) {
 
 	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
 
-	cmd := dtos.TransferBetweenWalletsCommand{
+	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),
 		DestinationWalletID: destinationWalletID.String(),
 		Amount:              "250.00",
@@ -150,7 +150,7 @@ func TestTransferBetweenWalletsUseCase_CurrencyMismatch(t *testing.T) {
 
 	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
 
-	cmd := dtos.TransferBetweenWalletsCommand{
+	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),
 		DestinationWalletID: destinationWalletID.String(),
 		Amount:              "100.00",
@@ -212,7 +212,7 @@ func TestTransferBetweenWalletsUseCase_InsufficientBalance(t *testing.T) {
 
 	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
 
-	cmd := dtos.TransferBetweenWalletsCommand{
+	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),
 		DestinationWalletID: destinationWalletID.String(),
 		Amount:              "5000.00", // Больше чем есть
@@ -269,7 +269,7 @@ func TestTransferBetweenWalletsUseCase_SameWallet(t *testing.T) {
 
 	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
 
-	cmd := dtos.TransferBetweenWalletsCommand{
+	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      walletID.String(),
 		DestinationWalletID: walletID.String(), // Тот же кошелёк!
 		Amount:              "100.00",
@@ -311,6 +311,7 @@ func TestTransferBetweenWalletsUseCase_Idempotency(t *testing.T) {
 	// Существующая транзакция
 	amountMoney, _ := valueobjects.NewMoney("250.00", currency)
 	existingTx, _ := entities.NewTransaction(sourceWalletID, idempotencyKey, entities.TransactionTypeTransfer, amountMoney, "Test transfer")
+	_ = existingTx.SetDestinationWallet(destinationWalletID)
 
 	walletRepo := &mockWalletRepo{
 		findByIDFunc: func(ctx context.Context, id uuid.UUID) (*entities.Wallet, error) {
@@ -338,7 +339,7 @@ func TestTransferBetweenWalletsUseCase_Idempotency(t *testing.T) {
 
 	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
 
-	cmd := dtos.TransferBetweenWalletsCommand{
+	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),
 		DestinationWalletID: destinationWalletID.String(),
 		Amount:              "250.00",

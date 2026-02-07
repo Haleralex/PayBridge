@@ -8,6 +8,7 @@
 package entities
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -46,12 +47,13 @@ func (s KYCStatus) IsValid() bool {
 // - Business logic encapsulated in methods
 // - Self-validating (maintains invariants)
 type User struct {
-	id        uuid.UUID // Identity - never changes
-	email     string
-	fullName  string
-	kycStatus KYCStatus
-	createdAt time.Time
-	updatedAt time.Time
+	id         uuid.UUID // Identity - never changes
+	email      string
+	fullName   string
+	kycStatus  KYCStatus
+	telegramID *int64 // Telegram user ID (optional, for Mini App auth)
+	createdAt  time.Time
+	updatedAt  time.Time
 }
 
 // Email validation regex (simplified - real systems use more complex validation)
@@ -102,17 +104,40 @@ func NewUser(email, fullName string) (*User, error) {
 	}, nil
 }
 
+// NewTelegramUser creates a new User from Telegram data.
+// Telegram users get a generated email and are auto-verified.
+func NewTelegramUser(telegramID int64, fullName string) (*User, error) {
+	fullName = strings.TrimSpace(fullName)
+	if fullName == "" {
+		fullName = "Telegram User"
+	}
+
+	email := fmt.Sprintf("tg_%d@telegram.local", telegramID)
+
+	now := time.Now()
+	return &User{
+		id:         uuid.New(),
+		email:      email,
+		fullName:   fullName,
+		kycStatus:  KYCStatusVerified, // Telegram users are auto-verified
+		telegramID: &telegramID,
+		createdAt:  now,
+		updatedAt:  now,
+	}, nil
+}
+
 // ReconstructUser reconstructs a User from stored data (e.g., from database).
 // Used by repository layer to hydrate entities.
 // No validation - assumes data is already valid.
-func ReconstructUser(id uuid.UUID, email, fullName string, kycStatus KYCStatus, createdAt, updatedAt time.Time) *User {
+func ReconstructUser(id uuid.UUID, email, fullName string, kycStatus KYCStatus, telegramID *int64, createdAt, updatedAt time.Time) *User {
 	return &User{
-		id:        id,
-		email:     email,
-		fullName:  fullName,
-		kycStatus: kycStatus,
-		createdAt: createdAt,
-		updatedAt: updatedAt,
+		id:         id,
+		email:      email,
+		fullName:   fullName,
+		kycStatus:  kycStatus,
+		telegramID: telegramID,
+		createdAt:  createdAt,
+		updatedAt:  updatedAt,
 	}
 }
 
@@ -145,6 +170,11 @@ func (u *User) CreatedAt() time.Time {
 // UpdatedAt returns when the user was last updated.
 func (u *User) UpdatedAt() time.Time {
 	return u.updatedAt
+}
+
+// TelegramID returns the user's Telegram ID (nil if not linked).
+func (u *User) TelegramID() *int64 {
+	return u.telegramID
 }
 
 // UpdateEmail changes the user's email with validation.

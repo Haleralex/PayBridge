@@ -35,6 +35,11 @@ type ListUsersUseCase interface {
 	Execute(ctx context.Context, query dtos.ListUsersQuery) (*dtos.UserListDTO, error)
 }
 
+// StartKYCUseCase - интерфейс для запуска KYC верификации.
+type StartKYCUseCase interface {
+	Execute(ctx context.Context, cmd dtos.StartKYCVerificationCommand) (*dtos.UserDTO, error)
+}
+
 // ============================================
 // User Handler
 // ============================================
@@ -49,6 +54,7 @@ type UserHandler struct {
 	approveKYC ApproveKYCUseCase
 	getUser    GetUserUseCase
 	listUsers  ListUsersUseCase
+	startKYC   StartKYCUseCase
 }
 
 // NewUserHandler создаёт новый UserHandler.
@@ -61,12 +67,14 @@ func NewUserHandler(
 	approveKYC ApproveKYCUseCase,
 	getUser GetUserUseCase,
 	listUsers ListUsersUseCase,
+	startKYC StartKYCUseCase,
 ) *UserHandler {
 	return &UserHandler{
 		createUser: createUser,
 		approveKYC: approveKYC,
 		getUser:    getUser,
 		listUsers:  listUsers,
+		startKYC:   startKYC,
 	}
 }
 
@@ -283,8 +291,22 @@ func (h *UserHandler) StartKYC(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement StartKYC use case
-	common.InternalErrorResponse(c, "StartKYC use case not implemented")
+	if h.startKYC == nil {
+		common.InternalErrorResponse(c, "StartKYC use case not implemented")
+		return
+	}
+
+	cmd := dtos.StartKYCVerificationCommand{
+		UserID: params.ID,
+	}
+
+	result, err := h.startKYC.Execute(c.Request.Context(), cmd)
+	if err != nil {
+		common.HandleDomainError(c, err)
+		return
+	}
+
+	common.Success(c, http.StatusOK, result)
 }
 
 // RegisterRoutes регистрирует маршруты для UserHandler.

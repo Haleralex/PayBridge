@@ -96,6 +96,32 @@ func setupWalletTestRouter(handler *WalletHandler) *gin.Engine {
 	return router
 }
 
+// setupWalletTestRouterWithAuth creates a test router with an authenticated user in context.
+func setupWalletTestRouterWithAuth(handler *WalletHandler, userID string) *gin.Engine {
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set("auth_user_id", userID)
+		c.Next()
+	})
+	handler.RegisterRoutes(router.Group("/api/v1"))
+	return router
+}
+
+// ownerGetWalletMock returns a mock that returns a wallet owned by the given userID.
+func ownerGetWalletMock(userID string) *mockGetWalletUseCase {
+	return &mockGetWalletUseCase{
+		ExecuteFn: func(ctx context.Context, query dtos.GetWalletQuery) (*dtos.WalletDTO, error) {
+			return &dtos.WalletDTO{
+				ID:               query.WalletID,
+				UserID:           userID,
+				CurrencyCode:     "USD",
+				AvailableBalance: "100.00",
+				Status:           "ACTIVE",
+			}, nil
+		},
+	}
+}
+
 // ============================================
 // Test Cases
 // ============================================
@@ -114,6 +140,8 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 
 		mockUseCase := &mockCreateWalletUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.CreateWalletCommand) (*dtos.WalletDTO, error) {
+				// Verify that UserID comes from auth context, not request body
+				assert.Equal(t, userID, cmd.UserID)
 				return &dtos.WalletDTO{
 					ID:               walletID,
 					UserID:           userID,
@@ -126,10 +154,9 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 		}
 
 		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
-			UserID:       userID,
 			CurrencyCode: "USD",
 		})
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/wallets", bytes.NewBuffer(body))
@@ -146,12 +173,11 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 		assert.NotNil(t, response["data"])
 	})
 
-	t.Run("InvalidUserID", func(t *testing.T) {
+	t.Run("NotAuthenticated", func(t *testing.T) {
 		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouter(handler)
 
 		body, _ := json.Marshal(CreateWalletRequest{
-			UserID:       "invalid-uuid",
 			CurrencyCode: "USD",
 		})
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/wallets", bytes.NewBuffer(body))
@@ -160,15 +186,15 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 
 	t.Run("InvalidCurrency", func(t *testing.T) {
+		userID := uuid.New().String()
 		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
-			UserID:       uuid.New().String(),
 			CurrencyCode: "usd", // lowercase invalid
 		})
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/wallets", bytes.NewBuffer(body))
@@ -181,6 +207,7 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 	})
 
 	t.Run("UserNotFound", func(t *testing.T) {
+		userID := uuid.New().String()
 		mockUseCase := &mockCreateWalletUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.CreateWalletCommand) (*dtos.WalletDTO, error) {
 				return nil, domerrors.NewDomainError("USER_NOT_FOUND", "user not found", domerrors.ErrEntityNotFound)
@@ -188,10 +215,9 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 		}
 
 		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
-			UserID:       uuid.New().String(),
 			CurrencyCode: "USD",
 		})
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/wallets", bytes.NewBuffer(body))
@@ -208,13 +234,14 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Success", func(t *testing.T) {
+		userID := uuid.New().String()
 		walletID := uuid.New().String()
 
 		mockUseCase := &mockGetWalletUseCase{
 			ExecuteFn: func(ctx context.Context, query dtos.GetWalletQuery) (*dtos.WalletDTO, error) {
 				return &dtos.WalletDTO{
 					ID:               walletID,
-					UserID:           uuid.New().String(),
+					UserID:           userID,
 					CurrencyCode:     "USD",
 					AvailableBalance: "100.50",
 					Status:           "ACTIVE",
@@ -223,7 +250,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 		}
 
 		handler := NewWalletHandler(nil, nil, nil, nil, mockUseCase, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+walletID, nil)
 		w := httptest.NewRecorder()
@@ -233,9 +260,34 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
+	t.Run("ForbiddenOtherUser", func(t *testing.T) {
+		authUserID := uuid.New().String()
+		ownerUserID := uuid.New().String()
+		walletID := uuid.New().String()
+
+		mockUseCase := &mockGetWalletUseCase{
+			ExecuteFn: func(ctx context.Context, query dtos.GetWalletQuery) (*dtos.WalletDTO, error) {
+				return &dtos.WalletDTO{
+					ID:     walletID,
+					UserID: ownerUserID, // Different from auth user
+				}, nil
+			},
+		}
+
+		handler := NewWalletHandler(nil, nil, nil, nil, mockUseCase, nil)
+		router := setupWalletTestRouterWithAuth(handler, authUserID)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+walletID, nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+
 	t.Run("InvalidUUID", func(t *testing.T) {
 		handler := NewWalletHandler(nil, nil, nil, nil, &mockGetWalletUseCase{}, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/not-a-uuid", nil)
 		w := httptest.NewRecorder()
@@ -253,7 +305,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 		}
 
 		handler := NewWalletHandler(nil, nil, nil, nil, mockUseCase, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+uuid.New().String(), nil)
 		w := httptest.NewRecorder()
@@ -265,7 +317,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 
 	t.Run("NilUseCase", func(t *testing.T) {
 		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+uuid.New().String(), nil)
 		w := httptest.NewRecorder()
@@ -347,9 +399,10 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Success", func(t *testing.T) {
+		userID := uuid.New().String()
 		walletID := uuid.New().String()
 
-		mockUseCase := &mockCreditWalletUseCase{
+		mockCredit := &mockCreditWalletUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.CreditWalletCommand) (*dtos.WalletOperationDTO, error) {
 				return &dtos.WalletOperationDTO{
 					Wallet: dtos.WalletDTO{
@@ -362,8 +415,8 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, mockUseCase, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		handler := NewWalletHandler(nil, mockCredit, nil, nil, ownerGetWalletMock(userID), nil)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
 			Amount:         "50.00",
@@ -379,9 +432,31 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
+	t.Run("ForbiddenOtherUser", func(t *testing.T) {
+		authUserID := uuid.New().String()
+		ownerUserID := uuid.New().String()
+
+		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, ownerGetWalletMock(ownerUserID), nil)
+		router := setupWalletTestRouterWithAuth(handler, authUserID)
+
+		body, _ := json.Marshal(CreditWalletRequest{
+			Amount:         "50.00",
+			IdempotencyKey: uuid.New().String(),
+			Description:    "Test",
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/wallets/"+uuid.New().String()+"/credit", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+
 	t.Run("InvalidAmount", func(t *testing.T) {
-		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		userID := uuid.New().String()
+		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, ownerGetWalletMock(userID), nil)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(map[string]interface{}{
 			"amount":          "-50.00", // Negative amount
@@ -398,14 +473,15 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 	})
 
 	t.Run("WalletNotActive", func(t *testing.T) {
-		mockUseCase := &mockCreditWalletUseCase{
+		userID := uuid.New().String()
+		mockCredit := &mockCreditWalletUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.CreditWalletCommand) (*dtos.WalletOperationDTO, error) {
 				return nil, domerrors.NewBusinessRuleViolation("WALLET_NOT_ACTIVE", "wallet is not active", nil)
 			},
 		}
 
-		handler := NewWalletHandler(nil, mockUseCase, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		handler := NewWalletHandler(nil, mockCredit, nil, nil, ownerGetWalletMock(userID), nil)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
 			Amount:         "50.00",
@@ -426,9 +502,10 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Success", func(t *testing.T) {
+		userID := uuid.New().String()
 		walletID := uuid.New().String()
 
-		mockUseCase := &mockDebitWalletUseCase{
+		mockDebit := &mockDebitWalletUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.DebitWalletCommand) (*dtos.WalletOperationDTO, error) {
 				return &dtos.WalletOperationDTO{
 					Wallet: dtos.WalletDTO{
@@ -441,8 +518,8 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, mockUseCase, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		handler := NewWalletHandler(nil, nil, mockDebit, nil, ownerGetWalletMock(userID), nil)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(DebitWalletRequest{
 			Amount:         "50.00",
@@ -459,14 +536,15 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 	})
 
 	t.Run("InsufficientBalance", func(t *testing.T) {
-		mockUseCase := &mockDebitWalletUseCase{
+		userID := uuid.New().String()
+		mockDebit := &mockDebitWalletUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.DebitWalletCommand) (*dtos.WalletOperationDTO, error) {
 				return nil, domerrors.NewBusinessRuleViolation("INSUFFICIENT_BALANCE", "insufficient balance", nil)
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, mockUseCase, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		handler := NewWalletHandler(nil, nil, mockDebit, nil, ownerGetWalletMock(userID), nil)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(DebitWalletRequest{
 			Amount:         "1000.00",
@@ -482,9 +560,9 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
+	t.Run("NilGetWalletUseCase", func(t *testing.T) {
 		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		body, _ := json.Marshal(DebitWalletRequest{
 			Amount:         "50.00",
@@ -505,10 +583,11 @@ func TestWalletHandler_Transfer(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Success", func(t *testing.T) {
+		userID := uuid.New().String()
 		sourceID := uuid.New().String()
 		destID := uuid.New().String()
 
-		mockUseCase := &mockTransferFundsUseCase{
+		mockTransfer := &mockTransferFundsUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.TransferFundsCommand) (*dtos.TransferResultDTO, error) {
 				return &dtos.TransferResultDTO{
 					SourceWallet:      dtos.WalletDTO{ID: sourceID, AvailableBalance: "50.00"},
@@ -517,8 +596,8 @@ func TestWalletHandler_Transfer(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, mockUseCase, nil, nil)
-		router := setupWalletTestRouter(handler)
+		handler := NewWalletHandler(nil, nil, nil, mockTransfer, ownerGetWalletMock(userID), nil)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(TransferFundsRequest{
 			DestinationWalletID: destID,
@@ -536,14 +615,15 @@ func TestWalletHandler_Transfer(t *testing.T) {
 	})
 
 	t.Run("CurrencyMismatch", func(t *testing.T) {
-		mockUseCase := &mockTransferFundsUseCase{
+		userID := uuid.New().String()
+		mockTransfer := &mockTransferFundsUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.TransferFundsCommand) (*dtos.TransferResultDTO, error) {
 				return nil, domerrors.NewBusinessRuleViolation("CURRENCY_MISMATCH", "wallets have different currencies", nil)
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, mockUseCase, nil, nil)
-		router := setupWalletTestRouter(handler)
+		handler := NewWalletHandler(nil, nil, nil, mockTransfer, ownerGetWalletMock(userID), nil)
+		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(TransferFundsRequest{
 			DestinationWalletID: uuid.New().String(),
@@ -560,9 +640,9 @@ func TestWalletHandler_Transfer(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
+	t.Run("NilGetWalletUseCase", func(t *testing.T) {
 		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
-		router := setupWalletTestRouter(handler)
+		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		body, _ := json.Marshal(TransferFundsRequest{
 			DestinationWalletID: uuid.New().String(),

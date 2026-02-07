@@ -1,0 +1,301 @@
+### PayBridge API Client
+### VS Code: Install "REST Client" extension (humao.rest-client)
+### Ctrl+Shift+P -> "Rest Client: Send Request" or click "Send Request" above each request
+
+@baseUrl = http://localhost:8080
+@token = test-token
+
+### ============================================
+### Health & Monitoring
+### ============================================
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Liveness Probe (K8s)
+GET {{baseUrl}}/live
+
+### Readiness Probe (K8s)
+GET {{baseUrl}}/ready
+
+### Prometheus Metrics
+GET {{baseUrl}}/metrics
+
+### ============================================
+### Users
+### ============================================
+
+### Create User (Public - no auth required)
+# @name createUser
+POST {{baseUrl}}/api/v1/users
+Content-Type: application/json
+
+{
+    "email": "john.doe{{$timestamp}}@example.com",
+    "full_name": "John Doe"
+}
+
+### Save user ID from response
+@userId = {{createUser.response.body.$.data.id}}
+
+### Get User by ID
+GET {{baseUrl}}/api/v1/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### List Users (with pagination)
+GET {{baseUrl}}/api/v1/users?limit=10&offset=0
+Authorization: Bearer {{token}}
+
+### Start KYC Verification
+POST {{baseUrl}}/api/v1/users/{{userId}}/kyc/start
+Authorization: Bearer {{token}}
+
+### Approve KYC (Admin action)
+POST {{baseUrl}}/api/v1/users/{{userId}}/kyc
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "approved": true
+}
+
+### ============================================
+### Wallets
+### ============================================
+
+### Create Wallet (USD)
+# @name createWallet1
+POST {{baseUrl}}/api/v1/wallets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "user_id": "{{userId}}",
+    "currency_code": "USD",
+    "wallet_type": "personal"
+}
+
+### Save wallet ID
+@walletId = {{createWallet1.response.body.$.data.id}}
+
+### Create Second Wallet (for transfers)
+# @name createWallet2
+POST {{baseUrl}}/api/v1/wallets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "user_id": "{{userId}}",
+    "currency_code": "USD",
+    "wallet_type": "personal"
+}
+
+@wallet2Id = {{createWallet2.response.body.$.data.id}}
+
+### Get Wallet by ID
+GET {{baseUrl}}/api/v1/wallets/{{walletId}}
+Authorization: Bearer {{token}}
+
+### List All Wallets
+GET {{baseUrl}}/api/v1/wallets?limit=20
+Authorization: Bearer {{token}}
+
+### Get My Wallets (current user)
+GET {{baseUrl}}/api/v1/wallets/me
+Authorization: Bearer {{token}}
+
+### ============================================
+### Financial Operations
+### ============================================
+
+### Credit Wallet (Deposit +1000.00)
+# @name creditWallet
+POST {{baseUrl}}/api/v1/wallets/{{walletId}}/credit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "amount": "1000.00",
+    "idempotency_key": "credit-{{$timestamp}}-{{$randomInt}}",
+    "description": "Initial deposit"
+}
+
+### Debit Wallet (Withdraw -100.00)
+# @name debitWallet
+POST {{baseUrl}}/api/v1/wallets/{{walletId}}/debit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "amount": "100.00",
+    "idempotency_key": "debit-{{$timestamp}}-{{$randomInt}}",
+    "description": "ATM withdrawal"
+}
+
+### Transfer Between Wallets
+# @name transfer
+POST {{baseUrl}}/api/v1/wallets/{{walletId}}/transfer
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "destination_wallet_id": "{{wallet2Id}}",
+    "amount": "250.00",
+    "idempotency_key": "transfer-{{$timestamp}}-{{$randomInt}}",
+    "description": "Payment for services"
+}
+
+### ============================================
+### Transactions
+### ============================================
+
+### List All Transactions
+GET {{baseUrl}}/api/v1/transactions?limit=20
+Authorization: Bearer {{token}}
+
+### List Transactions with Filters
+GET {{baseUrl}}/api/v1/transactions?wallet_id={{walletId}}&status=COMPLETED&limit=10
+Authorization: Bearer {{token}}
+
+### Get Transaction by ID
+@transactionId = {{transfer.response.body.$.data.transaction_id}}
+GET {{baseUrl}}/api/v1/transactions/{{transactionId}}
+Authorization: Bearer {{token}}
+
+### Get Transaction by Idempotency Key
+GET {{baseUrl}}/api/v1/transactions/by-key/transfer-{{$timestamp}}-{{$randomInt}}
+Authorization: Bearer {{token}}
+
+### Get Wallet Transactions (nested route)
+GET {{baseUrl}}/api/v1/wallets/{{walletId}}/transactions
+Authorization: Bearer {{token}}
+
+### ============================================
+### Transaction Management
+### ============================================
+
+### Retry Failed Transaction
+# POST {{baseUrl}}/api/v1/transactions/{{transactionId}}/retry
+# Authorization: Bearer {{token}}
+
+### Cancel Pending Transaction
+# POST {{baseUrl}}/api/v1/transactions/{{transactionId}}/cancel
+# Authorization: Bearer {{token}}
+
+### ============================================
+### Error Cases (for testing)
+### ============================================
+
+### Invalid UUID
+GET {{baseUrl}}/api/v1/wallets/not-a-uuid
+Authorization: Bearer {{token}}
+
+### Wallet Not Found
+GET {{baseUrl}}/api/v1/wallets/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+### Insufficient Balance (should fail)
+POST {{baseUrl}}/api/v1/wallets/{{wallet2Id}}/debit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "amount": "999999.00",
+    "idempotency_key": "fail-{{$timestamp}}",
+    "description": "Should fail - insufficient funds"
+}
+
+### Self Transfer (should fail)
+POST {{baseUrl}}/api/v1/wallets/{{walletId}}/transfer
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "destination_wallet_id": "{{walletId}}",
+    "amount": "100.00",
+    "idempotency_key": "self-{{$timestamp}}",
+    "description": "Should fail - same wallet"
+}
+
+### Missing Auth Header (should fail)
+GET {{baseUrl}}/api/v1/wallets
+
+### ============================================
+### Full Flow Test
+### ============================================
+
+### 1. Create user -> 2. Create 2 wallets -> 3. Credit first -> 4. Transfer to second -> 5. Check balances
+
+### Step 1: Create Test User
+# @name flowUser
+POST {{baseUrl}}/api/v1/users
+Content-Type: application/json
+
+{
+    "email": "flow-test-{{$timestamp}}@example.com",
+    "full_name": "Flow Test User"
+}
+
+###
+@flowUserId = {{flowUser.response.body.$.data.id}}
+
+### Step 2a: Create Wallet A
+# @name flowWalletA
+POST {{baseUrl}}/api/v1/wallets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "user_id": "{{flowUserId}}",
+    "currency_code": "USD",
+    "wallet_type": "personal"
+}
+
+###
+@flowWalletAId = {{flowWalletA.response.body.$.data.id}}
+
+### Step 2b: Create Wallet B
+# @name flowWalletB
+POST {{baseUrl}}/api/v1/wallets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "user_id": "{{flowUserId}}",
+    "currency_code": "USD",
+    "wallet_type": "personal"
+}
+
+###
+@flowWalletBId = {{flowWalletB.response.body.$.data.id}}
+
+### Step 3: Credit Wallet A (+500)
+POST {{baseUrl}}/api/v1/wallets/{{flowWalletAId}}/credit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "amount": "500.00",
+    "idempotency_key": "flow-credit-{{$timestamp}}",
+    "description": "Flow test deposit"
+}
+
+### Step 4: Transfer A -> B (200)
+POST {{baseUrl}}/api/v1/wallets/{{flowWalletAId}}/transfer
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "destination_wallet_id": "{{flowWalletBId}}",
+    "amount": "200.00",
+    "idempotency_key": "flow-transfer-{{$timestamp}}",
+    "description": "Flow test transfer"
+}
+
+### Step 5a: Check Wallet A Balance (should be 300)
+GET {{baseUrl}}/api/v1/wallets/{{flowWalletAId}}
+Authorization: Bearer {{token}}
+
+### Step 5b: Check Wallet B Balance (should be 200)
+GET {{baseUrl}}/api/v1/wallets/{{flowWalletBId}}
+Authorization: Bearer {{token}}

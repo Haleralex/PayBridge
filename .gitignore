@@ -47,6 +47,14 @@ Thumbs.db
 *.swo
 *~
 
+# Windows reserved names
+nul
+con
+prn
+aux
+com[1-9]
+lpt[1-9]
+
 # Environment variables
 .env
 .env.local

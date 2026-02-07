@@ -87,7 +87,6 @@ func NewWalletHandler(
 //
 // @Description Create wallet request body
 type CreateWalletRequest struct {
-	UserID       string `json:"user_id" binding:"required,uuid"`
 	CurrencyCode string `json:"currency_code" binding:"required,len=3,currency_code"`
 }
 
@@ -134,6 +133,39 @@ type ListWalletsParams struct {
 }
 
 // ============================================
+// Ownership Verification
+// ============================================
+
+// checkWalletOwnership verifies the authenticated user owns the given wallet.
+// Returns true if ownership is confirmed, false if an error response was sent.
+func (h *WalletHandler) checkWalletOwnership(c *gin.Context, walletID string) bool {
+	authUserID := middleware.GetAuthUserID(c)
+	if authUserID == uuid.Nil {
+		common.UnauthorizedResponse(c, "User not authenticated")
+		return false
+	}
+
+	if h.getWallet == nil {
+		common.InternalErrorResponse(c, "GetWallet use case not available")
+		return false
+	}
+
+	query := dtos.GetWalletQuery{WalletID: walletID}
+	wallet, err := h.getWallet.Execute(c.Request.Context(), query)
+	if err != nil {
+		common.HandleDomainError(c, err)
+		return false
+	}
+
+	if wallet.UserID != authUserID.String() {
+		common.ForbiddenResponse(c, "You do not have access to this wallet")
+		return false
+	}
+
+	return true
+}
+
+// ============================================
 // HTTP Handlers
 // ============================================
 
@@ -153,13 +185,19 @@ type ListWalletsParams struct {
 // @Failure 500 {object} common.APIResponse
 // @Router /api/v1/wallets [post]
 func (h *WalletHandler) CreateWallet(c *gin.Context) {
+	authUserID := middleware.GetAuthUserID(c)
+	if authUserID == uuid.Nil {
+		common.UnauthorizedResponse(c, "User not authenticated")
+		return
+	}
+
 	var req CreateWalletRequest
 	if !BindJSON(c, &req) {
 		return
 	}
 
 	cmd := dtos.CreateWalletCommand{
-		UserID:       req.UserID,
+		UserID:       authUserID.String(), // Always use authenticated user's ID
 		CurrencyCode: req.CurrencyCode,
 	}
 
@@ -195,6 +233,11 @@ func (h *WalletHandler) GetWallet(c *gin.Context) {
 		common.ValidationErrorResponse(c, []common.FieldError{
 			{Field: "id", Message: "Invalid UUID format", Code: "uuid"},
 		})
+		return
+	}
+
+	// Ownership check: only wallet owner can view
+	if !h.checkWalletOwnership(c, params.ID) {
 		return
 	}
 
@@ -290,6 +333,11 @@ func (h *WalletHandler) CreditWallet(c *gin.Context) {
 		return
 	}
 
+	// Ownership check: only wallet owner can credit
+	if !h.checkWalletOwnership(c, params.ID) {
+		return
+	}
+
 	var req CreditWalletRequest
 	if !BindJSON(c, &req) {
 		return
@@ -331,6 +379,11 @@ func (h *WalletHandler) CreditWallet(c *gin.Context) {
 func (h *WalletHandler) DebitWallet(c *gin.Context) {
 	var params WalletIDParam
 	if !BindURI(c, &params) {
+		return
+	}
+
+	// Ownership check: only wallet owner can debit
+	if !h.checkWalletOwnership(c, params.ID) {
 		return
 	}
 
@@ -380,6 +433,11 @@ func (h *WalletHandler) DebitWallet(c *gin.Context) {
 func (h *WalletHandler) Transfer(c *gin.Context) {
 	var params WalletIDParam
 	if !BindURI(c, &params) {
+		return
+	}
+
+	// Ownership check: only source wallet owner can transfer
+	if !h.checkWalletOwnership(c, params.ID) {
 		return
 	}
 

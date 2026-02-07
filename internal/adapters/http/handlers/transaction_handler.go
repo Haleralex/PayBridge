@@ -35,16 +35,22 @@ type CancelTransactionUseCase interface {
 	Execute(ctx context.Context, cmd dtos.CancelTransactionCommand) (*dtos.TransactionDTO, error)
 }
 
+// GetTransactionByIdempotencyKeyUseCase - интерфейс для поиска транзакции по ключу идемпотентности.
+type GetTransactionByIdempotencyKeyUseCase interface {
+	Execute(ctx context.Context, query dtos.GetTransactionByIdempotencyKeyQuery) (*dtos.TransactionDTO, error)
+}
+
 // ============================================
 // Transaction Handler
 // ============================================
 
 // TransactionHandler обрабатывает HTTP запросы для транзакций.
 type TransactionHandler struct {
-	getTransaction    GetTransactionUseCase
-	listTransactions  ListTransactionsUseCase
-	retryTransaction  RetryTransactionUseCase
-	cancelTransaction CancelTransactionUseCase
+	getTransaction              GetTransactionUseCase
+	listTransactions            ListTransactionsUseCase
+	retryTransaction            RetryTransactionUseCase
+	cancelTransaction           CancelTransactionUseCase
+	getByIdempotencyKey         GetTransactionByIdempotencyKeyUseCase
 }
 
 // NewTransactionHandler создаёт новый TransactionHandler.
@@ -53,12 +59,14 @@ func NewTransactionHandler(
 	listTransactions ListTransactionsUseCase,
 	retryTransaction RetryTransactionUseCase,
 	cancelTransaction CancelTransactionUseCase,
+	getByIdempotencyKey GetTransactionByIdempotencyKeyUseCase,
 ) *TransactionHandler {
 	return &TransactionHandler{
-		getTransaction:    getTransaction,
-		listTransactions:  listTransactions,
-		retryTransaction:  retryTransaction,
-		cancelTransaction: cancelTransaction,
+		getTransaction:              getTransaction,
+		listTransactions:            listTransactions,
+		retryTransaction:            retryTransaction,
+		cancelTransaction:           cancelTransaction,
+		getByIdempotencyKey:         getByIdempotencyKey,
 	}
 }
 
@@ -212,8 +220,22 @@ func (h *TransactionHandler) GetTransactionByIdempotencyKey(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement GetTransactionByIdempotencyKey use case
-	common.InternalErrorResponse(c, "GetTransactionByIdempotencyKey use case not implemented")
+	if h.getByIdempotencyKey == nil {
+		common.InternalErrorResponse(c, "GetTransactionByIdempotencyKey use case not implemented")
+		return
+	}
+
+	query := dtos.GetTransactionByIdempotencyKeyQuery{
+		IdempotencyKey: key,
+	}
+
+	result, err := h.getByIdempotencyKey.Execute(c.Request.Context(), query)
+	if err != nil {
+		common.HandleDomainError(c, err)
+		return
+	}
+
+	common.Success(c, http.StatusOK, result)
 }
 
 // RetryTransaction повторяет failed транзакцию.
@@ -312,12 +334,12 @@ func (h *TransactionHandler) CancelTransaction(c *gin.Context) {
 // @Success 200 {object} common.APIResponse{data=dtos.TransactionListDTO}
 // @Failure 400 {object} common.APIResponse
 // @Failure 500 {object} common.APIResponse
-// @Router /api/v1/wallets/{wallet_id}/transactions [get]
+// @Router /api/v1/wallets/{id}/transactions [get]
 func (h *TransactionHandler) GetWalletTransactions(c *gin.Context) {
-	walletID := c.Param("wallet_id")
+	walletID := c.Param("id") // Uses :id to match other wallet routes
 	if walletID == "" {
 		common.ValidationErrorResponse(c, []common.FieldError{
-			{Field: "wallet_id", Message: "Wallet ID is required", Code: "required"},
+			{Field: "id", Message: "Wallet ID is required", Code: "required"},
 		})
 		return
 	}
