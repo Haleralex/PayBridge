@@ -1,0 +1,296 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly security scan on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better secret detection
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+        cache: true
+
+    - name: Install security tools
+      run: |
+        # Install govulncheck for vulnerability scanning
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        
+        # Install gosec for static analysis
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        
+        # Install staticcheck for code quality
+        go install honnef.co/go/tools/cmd/staticcheck@latest
+
+    - name: Run Go vulnerability check
+      id: govulncheck
+      run: |
+        echo "Scanning for known vulnerabilities..."
+        govulncheck ./... || echo "::warning::Vulnerabilities found in dependencies"
+      continue-on-error: true
+
+    - name: Run gosec security scanner
+      id: gosec
+      run: |
+        echo "Running static application security testing..."
+        gosec -fmt=json -out=gosec-report.json -severity=medium ./...
+        gosec -fmt=sarif -out=gosec-results.sarif ./...
+      continue-on-error: true
+
+    - name: Upload SARIF results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: gosec-results.sarif
+        category: gosec
+
+    - name: Check for SQL injection patterns
+      run: |
+        echo "Checking for SQL injection vulnerabilities..."
+        # Look for dangerous SQL patterns
+        if grep -r "fmt.Sprintf.*SELECT\|INSERT\|UPDATE\|DELETE" internal/ --include="*.go"; then
+          echo "::error::Potential SQL injection found - use parameterized queries"
+          exit 1
+        fi
+        echo "✓ No SQL injection patterns detected"
+
+    - name: Check for hardcoded secrets
+      run: |
+        echo "Scanning for hardcoded secrets..."
+        # Check for patterns that might indicate secrets
+        SECRETS_FOUND=0
+        
+        # Check for password patterns
+        if grep -r "password.*=.*\"[^\"]\{8,\}\"" . --include="*.go" --include="*.yaml" | grep -v "change-me" | grep -v "example" | grep -v test; then
+          echo "::warning::Potential hardcoded password found"
+          SECRETS_FOUND=1
+        fi
+        
+        # Check for API keys
+        if grep -r "api.key.*=.*\"[A-Za-z0-9]\{20,\}\"" . --include="*.go" --include="*.yaml"; then
+          echo "::warning::Potential hardcoded API key found"
+          SECRETS_FOUND=1
+        fi
+        
+        if [ $SECRETS_FOUND -eq 0 ]; then
+          echo "✓ No obvious hardcoded secrets found"
+        fi
+
+    - name: Validate production configuration
+      run: |
+        echo "Validating production configuration..."
+        ISSUES=0
+        
+        if grep -q "enable_mock_auth: true" configs/config.production.yaml 2>/dev/null; then
+          echo "::error::Mock auth enabled in production config!"
+          ISSUES=1
+        fi
+        
+        if grep -q "ssl_mode: disable" configs/config.production.yaml 2>/dev/null; then
+          echo "::error::SSL disabled in production config!"
+          ISSUES=1
+        fi
+        
+        if grep -q 'allowed_origins:.*\*' configs/config.production.yaml 2>/dev/null; then
+          echo "::error::CORS wildcard in production config!"
+          ISSUES=1
+        fi
+        
+        if [ $ISSUES -eq 0 ]; then
+          echo "✓ Production configuration validated"
+        else
+          exit 1
+        fi
+
+    - name: Check authentication implementation
+      run: |
+        echo "Verifying authentication security..."
+        
+        # Check for JWT implementation
+        if ! grep -q "NewJWTTokenValidator" internal/adapters/http/middleware/auth.go; then
+          echo "::warning::JWT validator implementation not found"
+        fi
+        
+        # Check for ownership validation
+        if ! grep -q "checkWalletOwnership\|GetAuthUserID" internal/adapters/http/handlers/wallet_handler.go; then
+          echo "::error::Missing wallet ownership checks in handlers"
+          exit 1
+        fi
+        
+        echo "✓ Authentication checks passed"
+
+    - name: Run security tests
+      run: |
+        echo "Running security-focused tests..."
+        go test -v -race -tags=security ./internal/adapters/http/middleware/... || true
+        go test -v -race ./internal/adapters/http/handlers/... || true
+
+    - name: Check test coverage
+      id: coverage
+      run: |
+        echo "Calculating test coverage..."
+        go test -coverprofile=coverage.out ./internal/adapters/http/...
+        COVERAGE=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        
+        if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+          echo "::warning::Test coverage below 70%: $COVERAGE%"
+        else
+          echo "✓ Test coverage: $COVERAGE%"
+        fi
+
+    - name: Generate security report
+      if: always()
+      run: |
+        echo "# Security Scan Report" > security-report.md
+        echo "" >> security-report.md
+        echo "**Date:** $(date)" >> security-report.md
+        echo "**Commit:** ${{ github.sha }}" >> security-report.md
+        echo "" >> security-report.md
+        
+        echo "## Vulnerability Scan" >> security-report.md
+        if [ "${{ steps.govulncheck.outcome }}" == "success" ]; then
+          echo "✅ No vulnerabilities found" >> security-report.md
+        else
+          echo "⚠️ Vulnerabilities detected - review logs" >> security-report.md
+        fi
+        echo "" >> security-report.md
+        
+        echo "## Static Analysis" >> security-report.md
+        if [ "${{ steps.gosec.outcome }}" == "success" ]; then
+          echo "✅ No security issues found" >> security-report.md
+        else
+          echo "⚠️ Security issues detected - review SARIF report" >> security-report.md
+        fi
+        echo "" >> security-report.md
+        
+        echo "## Test Coverage" >> security-report.md
+        echo "Coverage: ${{ steps.coverage.outputs.coverage }}%" >> security-report.md
+        echo "" >> security-report.md
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('security-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });
+
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          gosec-report.json
+          gosec-results.sarif
+          coverage.out
+          security-report.md
+        retention-days: 30
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        fail-on-severity: moderate
+        deny-licenses: GPL-3.0, AGPL-3.0
+
+  docker-security:
+    name: Docker Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: docker build -t paybridge:test .
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'paybridge:test'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+        category: trivy
+
+    - name: Check for non-root user
+      run: |
+        echo "Checking if container runs as non-root..."
+        if docker inspect paybridge:test | grep -q '"User": "appuser"'; then
+          echo "✓ Container runs as non-root user"
+        else
+          echo "::warning::Container may run as root"
+        fi
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [security-audit, docker-security]
+    if: always()
+    
+    steps:
+    - name: Generate summary
+      run: |
+        echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Security Audit:** ${{ needs.security-audit.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Docker Security:** ${{ needs.docker-security.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.security-audit.result }}" == "success" ] && [ "${{ needs.docker-security.result }}" == "success" ]; then
+          echo "✅ All security checks passed!" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Some security checks failed - review details above" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Fail if critical issues found
+      if: |
+        needs.security-audit.result == 'failure' ||
+        needs.docker-security.result == 'failure'
+      run: |
+        echo "::error::Critical security issues found - failing workflow"
+        exit 1

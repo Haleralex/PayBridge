@@ -209,11 +209,43 @@ make ci             # Full CI pipeline
 
 ## 🔒 Security Features
 
-- Optimistic locking for wallet balance
-- Idempotency keys for duplicate prevention
-- Transaction state machine
-- Retry mechanism with exponential backoff
-- Rate limiting on sensitive endpoints
+**Rating: 6.5/10** - Production-ready with recent security improvements
+
+### Implemented Security Controls
+- ✅ **JWT Authentication** - Production HS256 implementation
+- ✅ **Wallet Ownership Validation** - IDOR protection
+- ✅ **SQL Injection Prevention** - Parameterized queries throughout
+- ✅ **Optimistic Locking** - Concurrent update protection
+- ✅ **Idempotency Keys** - Duplicate transaction prevention
+- ✅ **Rate Limiting** - DDoS protection (100 req/min, 30 for financial ops)
+- ✅ **Input Validation** - Comprehensive validation framework
+- ✅ **Audit Logging** - Structured logging with context
+- ✅ **Non-root Docker** - Container security
+
+### Security Development Process
+- 📋 [Security Quick Start](SECURITY_QUICK_START.md) - New developer onboarding
+- ✅ [Security Checklist](SECURITY_CHECKLIST.md) - PR review requirements
+- 🧪 [Security Testing Guide](SECURITY_TESTING.md) - Testing practices
+- 📖 [Security Guidelines](docs/SECURITY_GUIDELINES.md) - Development standards
+- 🔍 [Security Audit Report](docs/security-audit.md) - Latest findings
+
+### Running Security Checks
+```powershell
+# Full security audit (recommended before each commit)
+.\scripts\security_audit.ps1
+
+# Quick vulnerability scan
+govulncheck ./...
+
+# Static analysis
+gosec ./...
+
+# Run security tests
+go test -tags=security ./internal/adapters/http/...
+```
+
+### For New Developers
+**Required:** Read [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md) before contributing
 
 ## 🎯 Production Ready
 
