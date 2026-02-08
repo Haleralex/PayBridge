@@ -249,7 +249,7 @@ Create a `.env` file in the project root:
 
 ```bash
 # Authentication
-PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=8327261140:AAHPYSyp0j7bpeRHitE9o7PR0dSGDPd5kKk
+PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz1234567890
 PAYBRIDGE_AUTH_JWT_SECRET=my-super-secret-jwt-key-minimum-32-characters
 
 # Database
@@ -283,7 +283,7 @@ Edit `configs/config.yaml`:
 
 ```yaml
 auth:
-  telegram_bot_token: "8327261140:AAHPYSyp0j7bpeRHitE9o7PR0dSGDPd5kKk"
+  telegram_bot_token: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz1234567890"
   jwt_secret: "my-super-secret-jwt-key-minimum-32-characters"
 
 database:
