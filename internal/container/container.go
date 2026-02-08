@@ -238,17 +238,16 @@ func (c *Container) initUseCases() {
 
 // initHTTPServer инициализирует HTTP сервер.
 func (c *Container) initHTTPServer() {
-	// Token validator
-	var tokenValidator func(token string) (*middleware.AuthClaims, error)
+	// Token validator - всегда используем настоящий JWT validator
+	// Telegram Auth и все endpoint'ы требуют валидный JWT токен
+	tokenValidator := middleware.NewJWTTokenValidator(
+		c.config.Auth.JWTSecret,
+		c.config.Auth.JWTIssuer,
+	)
+
 	if c.config.Auth.EnableMockAuth {
-		c.logger.Warn("Using mock auth — ONLY for development!")
-		tokenValidator = middleware.MockTokenValidator
+		c.logger.Warn("Mock auth enabled — development mode, real JWT validation still active")
 	} else {
-		// Real JWT validator for production
-		tokenValidator = middleware.NewJWTTokenValidator(
-			c.config.Auth.JWTSecret,
-			c.config.Auth.JWTIssuer,
-		)
 		c.logger.Info("Using real JWT authentication")
 	}
 

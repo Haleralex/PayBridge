@@ -432,6 +432,8 @@
         // Telegram Auth - authenticate via initData, get personal token
         async function telegramAuth() {
             const initData = tg?.initData;
+            console.log('Telegram WebApp present:', !!tg);
+            console.log('InitData present:', !!initData);
             if (!initData) {
                 document.getElementById('walletInfo').textContent = 'Open in Telegram to use';
                 showToast('Open this app inside Telegram');
@@ -439,12 +441,15 @@
             }
 
             try {
+                console.log('Authenticating via:', `${API_BASE}/auth/telegram`);
                 const response = await fetch(`${API_BASE}/auth/telegram`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    cache: 'no-store',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'ngrok-skip-browser-warning': '1' },
                     body: JSON.stringify({ init_data: initData })
                 });
                 const data = await response.json();
+                console.log('Auth response:', response.status, data);
                 if (!response.ok) throw new Error(data.error?.message || 'Auth failed');
 
                 AUTH_TOKEN = data.data.token;
@@ -461,16 +466,47 @@
         // API Helper
         async function api(endpoint, options = {}) {
             if (!AUTH_TOKEN) throw new Error('Not authenticated');
+            
+            console.log(`[API] Request: ${options.method || 'GET'} ${API_BASE}${endpoint}`);
+            
             const response = await fetch(`${API_BASE}${endpoint}`, {
                 ...options,
+                cache: 'no-store',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                     'Authorization': `Bearer ${AUTH_TOKEN}`,
+                    'ngrok-skip-browser-warning': '1',
                     ...options.headers
                 }
             });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error?.message || 'Request failed');
+            
+            console.log(`[API] Response: ${response.status} ${response.statusText}`);
+            console.log(`[API] Content-Type: ${response.headers.get('content-type')}`);
+            
+            // Get response text first to see what we got
+            const text = await response.text();
+            console.log(`[API] Response body (first 500 chars):`, text.substring(0, 500));
+            
+            // Try to parse as JSON
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error('[API] Failed to parse JSON:', err);
+                console.error('[API] Raw response:', text);
+                // Show debug info on screen
+                document.title = `ERR: ${response.status} ct=${response.headers.get('content-type')} body=${text.substring(0, 200)}`;
+                throw new Error(`status:${response.status} ct:${response.headers.get('content-type')} body:${text.substring(0, 100)}`);
+            }
+            
+            // Check if request was successful
+            if (!response.ok) {
+                console.error('[API] Request failed:', data);
+                throw new Error(data.error?.message || data.message || `Request failed with status ${response.status}`);
+            }
+            
+            console.log('[API] Parsed data:', data);
             return data;
         }
 
@@ -485,7 +521,10 @@
         // Load Wallets (auto-creates USD wallet for new users)
         async function loadWallets() {
             try {
-                let data = await api('/wallets/me');
+                console.log('Loading wallets from:', `${API_BASE}/wallets/me`);
+                console.log('Auth token present:', !!AUTH_TOKEN);
+                let data = await api('/wallets/me', { method: 'POST' });
+                console.log('Wallets response:', data);
                 wallets = data.data?.wallets || [];
 
                 // Auto-create USD wallet if user has none
@@ -499,7 +538,7 @@
                             })
                         });
                         // Reload wallets
-                        data = await api('/wallets/me');
+                        data = await api('/wallets/me', { method: 'POST' });
                         wallets = data.data?.wallets || [];
                     } catch (e) {
                         console.log('Auto-create wallet failed:', e.message);
@@ -571,7 +610,7 @@
             container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
 
             try {
-                const data = await api(`/wallets/${currentWallet.id}/transactions`);
+                const data = await api(`/wallets/${currentWallet.id}/transactions`, { method: 'POST' });
                 const transactions = data.data?.transactions || [];
 
                 if (transactions.length === 0) {

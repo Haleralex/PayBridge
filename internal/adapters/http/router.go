@@ -10,6 +10,7 @@ package http
 
 import (
 	"log/slog"
+	"path/filepath"
 	"time"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
@@ -288,6 +289,7 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				wallets.POST("", walletHandler.CreateWallet)
 				wallets.GET("", walletHandler.ListWallets)
 				wallets.GET("/me", walletHandler.GetMyWallets)
+			wallets.POST("/me", walletHandler.GetMyWallets) // POST duplicate for ngrok compatibility
 				wallets.GET("/:id", walletHandler.GetWallet)
 
 				// Financial operations with stricter rate limiting
@@ -322,6 +324,7 @@ func (b *RouterBuilder) Build() *gin.Engine {
 			// Nested route: /wallets/:id/transactions (uses :id to match other wallet routes)
 			if b.wallets != nil {
 				protectedGroup.GET("/wallets/:id/transactions", txHandler.GetWalletTransactions)
+				protectedGroup.POST("/wallets/:id/transactions", txHandler.GetWalletTransactions) // POST duplicate for ngrok compatibility
 			}
 		}
 	}
@@ -344,8 +347,20 @@ func (b *RouterBuilder) Build() *gin.Engine {
 	// Static Files (Webapp / Telegram Mini App)
 	// ============================================
 
-	// Serve webapp at /app
-	router.Static("/app", "./webapp")
+	// Serve webapp with no-cache headers
+	serveWebapp := func(c *gin.Context) {
+		fp := c.Param("filepath")
+		if fp == "/" || fp == "" {
+			fp = "/index.html"
+		}
+		fullPath := filepath.Join("./webapp", fp)
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+		c.Header("Pragma", "no-cache")
+		c.Header("Expires", "0")
+		c.File(fullPath)
+	}
+	router.GET("/app/*filepath", serveWebapp)
+	router.GET("/m/*filepath", serveWebapp) // alternate path to bust WebView cache
 
 	// ============================================
 	// 404 Handler

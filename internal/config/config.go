@@ -312,6 +312,8 @@ func bindEnvVars(v *viper.Viper) {
 
 	// Auth
 	_ = v.BindEnv("auth.jwt_secret", "PAYBRIDGE_AUTH_JWT_SECRET", "JWT_SECRET")
+	_ = v.BindEnv("auth.telegram_bot_token", "PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN")
+	_ = v.BindEnv("auth.enable_mock_auth", "PAYBRIDGE_AUTH_ENABLE_MOCK_AUTH")
 
 	// Server
 	_ = v.BindEnv("server.port", "PAYBRIDGE_SERVER_PORT", "PORT")

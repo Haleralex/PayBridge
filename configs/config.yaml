@@ -33,6 +33,7 @@ auth:
   access_token_expiry: "15m"
   refresh_token_expiry: "168h"  # 7 days
   enable_mock_auth: true  # ONLY for development!
+  telegram_bot_token: "8327261140:AAG6bsJfnEUMlJAKcsZEZyvbYRJLsewn8dI"  # Get from @BotFather in Telegram
 
 cors:
   allowed_origins:
@@ -50,6 +51,7 @@ cors:
     - "Accept"
     - "Authorization"
     - "X-Request-ID"
+    - "ngrok-skip-browser-warning"
   exposed_headers:
     - "X-Request-ID"
     - "X-RateLimit-Limit"
