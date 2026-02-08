@@ -24,6 +24,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"github.com/Haleralex/wallethub/internal/config"
 	"github.com/Haleralex/wallethub/internal/container"
 )
@@ -36,6 +38,9 @@ var (
 )
 
 func main() {
+	// Load .env file if exists (игнорируем ошибки - файл опционален)
+	_ = godotenv.Load()
+
 	// Parse flags
 	configPath := flag.String("config", "./configs", "Path to config directory")
 	configName := flag.String("config-name", "config", "Config file name (without extension)")
