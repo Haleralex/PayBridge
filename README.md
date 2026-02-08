@@ -16,16 +16,14 @@ PayBridge is a financial-grade payment processing system with support for multi-
 
 - [Features](#features)
 - [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
+- [API Endpoints](#api-endpoints)
+- [Testing](#testing)
 - [Docker](#docker)
 - [Development](#development)
-- [Testing](#testing)
 - [Security](#security)
-- [Documentation](#documentation)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
+- [Production Readiness](#production-readiness)
 - [License](#license)
 
 ---
@@ -249,7 +247,7 @@ Create a `.env` file in the project root:
 
 ```bash
 # Authentication
-PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz1234567890
+PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=YOUR_TG_TOKEN
 PAYBRIDGE_AUTH_JWT_SECRET=my-super-secret-jwt-key-minimum-32-characters
 
 # Database
@@ -283,7 +281,7 @@ Edit `configs/config.yaml`:
 
 ```yaml
 auth:
-  telegram_bot_token: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz1234567890"
+  telegram_bot_token: "YOUR_TG_TOKEN"
   jwt_secret: "my-super-secret-jwt-key-minimum-32-characters"
 
 database:
@@ -339,12 +337,6 @@ services:
 
 Just ensure your `.env` file exists with the required variables.
 
-### Configuration Documentation
-
-- [SECRETS_HOWTO.md](SECRETS_HOWTO.md) - Complete secrets management guide
-- [DOCKER_ENV_HOWTO.md](DOCKER_ENV_HOWTO.md) - Docker environment variable setup
-- [configs/config.example.yaml](configs/config.example.yaml) - Full configuration template
-
 ---
 
 ## API Endpoints
@@ -369,9 +361,7 @@ Just ensure your `.env` file exists with the required variables.
 - `POST /api/v1/auth/telegram` - Authenticate via Telegram
 - `POST /api/v1/auth/refresh` - Refresh JWT token
 
-**Full API Documentation:**
-- OpenAPI Specification: [api/openapi.yaml](api/openapi.yaml)
-- HTTP Request Examples: [api/paybridge.http](api/paybridge.http)
+**API Specification:** OpenAPI format available in repository
 
 ---
 
@@ -657,22 +647,6 @@ gosec ./...
 - State machine validation
 - Balance consistency checks
 
-### Security Development Process
-
-**Before Writing Code:**
-1. Read [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md)
-2. Review [docs/SECURITY_GUIDELINES.md](docs/SECURITY_GUIDELINES.md)
-
-**Before Committing:**
-1. Run security audit: `.\scripts\security_audit.ps1`
-2. Check [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md)
-3. Run tests including security tests: `go test -tags=security ./...`
-
-**Before Pull Request:**
-1. Verify [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) items
-2. Review [SECURITY_TESTING.md](SECURITY_TESTING.md) for test coverage
-3. Run full CI pipeline: `make ci`
-
 ### Security Audit
 
 **Run Full Security Audit:**
@@ -686,17 +660,6 @@ govulncheck ./...
 # Static security analysis
 gosec ./...
 ```
-
-**Latest Audit Report:** [docs/security-audit.md](docs/security-audit.md)
-
-### Security Documentation
-
-- [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md) - New developer onboarding
-- [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) - PR review requirements
-- [SECURITY_TESTING.md](SECURITY_TESTING.md) - Testing best practices
-- [docs/SECURITY_GUIDELINES.md](docs/SECURITY_GUIDELINES.md) - Development standards
-- [docs/SECURITY_CODE_EXAMPLES.md](docs/SECURITY_CODE_EXAMPLES.md) - Code examples
-- [LEAKED_TOKEN_FIX.md](LEAKED_TOKEN_FIX.md) - Token leak remediation guide
 
 ---
 
@@ -731,108 +694,16 @@ gosec ./...
 
 ---
 
-## Documentation
-
-### Architecture Documentation
-- [docs/DEEP_DIVE_RU.md](docs/DEEP_DIVE_RU.md) - Comprehensive architecture deep dive
-- [docs/DEEP_DIVE_PHASE2_RU.md](docs/DEEP_DIVE_PHASE2_RU.md) - Phase 2 implementation
-- [docs/DEEP_DIVE_PHASE3_RU.md](docs/DEEP_DIVE_PHASE3_RU.md) - Phase 3 patterns
-- [docs/DEEP_DIVE_PHASE4_RU.md](docs/DEEP_DIVE_PHASE4_RU.md) - Phase 4 advanced topics
-- [docs/DEEP_DIVE_PHASE5_RU.md](docs/DEEP_DIVE_PHASE5_RU.md) - Phase 5 production readiness
-- [docs/DEEP_DIVE_PHASE6_RU.md](docs/DEEP_DIVE_PHASE6_RU.md) - Phase 6 observability
-
-### Quick Start Guides
-- [QUICK_TEST.md](QUICK_TEST.md) - Quick testing guide
-- [docs/QUICK_START.md](docs/QUICK_START.md) - Detailed setup guide
-- [docs/PHASE_2_QUICK_START.md](docs/PHASE_2_QUICK_START.md) - Phase 2 onboarding
-- [docs/PHASE_3_QUICK_START.md](docs/PHASE_3_QUICK_START.md) - Phase 3 patterns
-
-### Summary Documents
-- [docs/PHASE_1_SUMMARY.md](docs/PHASE_1_SUMMARY.md) - Foundation layer summary
-- [docs/PHASE_2_SUMMARY.md](docs/PHASE_2_SUMMARY.md) - Application layer summary
-- [docs/PHASE_3_SUMMARY.md](docs/PHASE_3_SUMMARY.md) - Patterns implementation
-- [docs/PHASE_4_SUMMARY.md](docs/PHASE_4_SUMMARY.md) - Advanced features
-- [docs/PHASE_5_SUMMARY.md](docs/PHASE_5_SUMMARY.md) - Production features
-- [docs/PHASE_6_SUMMARY.md](docs/PHASE_6_SUMMARY.md) - Observability & monitoring
-
-### Testing Documentation
-- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Comprehensive testing guide
-- [TEST_SUMMARY.md](TEST_SUMMARY.md) - Test execution summaries
-- [SECURITY_TESTING.md](SECURITY_TESTING.md) - Security testing practices
-
-### Security Documentation
-See **Security** section above for complete security documentation list.
-
-### Configuration Documentation
-- [SECRETS_HOWTO.md](SECRETS_HOWTO.md) - Secrets management guide
-- [DOCKER_ENV_HOWTO.md](DOCKER_ENV_HOWTO.md) - Docker environment setup
-- [configs/config.example.yaml](configs/config.example.yaml) - Configuration template
-
-### Checklists
-- [CHECKLIST.md](CHECKLIST.md) - General development checklist
-- [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) - Security review checklist
-
----
-
-## Contributing
-
-We welcome contributions! Please follow these guidelines:
-
-### Getting Started
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR-USERNAME/PayBridge.git`
-3. Create a feature branch: `git checkout -b feature/your-feature-name`
-4. Read [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md) before writing code
-
-### Development Workflow
-1. Make your changes following the [docs/SECURITY_GUIDELINES.md](docs/SECURITY_GUIDELINES.md)
-2. Add tests for new functionality
-3. Run tests: `make test-all`
-4. Run security audit: `.\scripts\security_audit.ps1`
-5. Run linter: `make lint`
-6. Format code: `make fmt`
-
-### Commit Guidelines
-- Use clear, descriptive commit messages
-- Follow conventional commits format: `type(scope): description`
-- Examples: `feat(wallet): add multi-currency support`, `fix(auth): resolve token expiration bug`
-
-### Pull Request Process
-1. Update documentation if needed
-2. Ensure all tests pass
-3. Verify [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) items
-4. Push to your fork: `git push origin feature/your-feature-name`
-5. Open a Pull Request with detailed description
-
-### Code Review
-- All PRs require review before merging
-- Address review comments promptly
-- Keep PRs focused and reasonably sized
-- Update PR if requirements change during review
-
----
-
 ## License
 
 This project is licensed under the MIT License. See LICENSE file for details.
 
 ---
 
-## Links & Resources
+## Links
 
-- **API Documentation:** `/api/docs` (when running)
-- **OpenAPI Specification:** [api/openapi.yaml](api/openapi.yaml)
 - **GitHub Repository:** https://github.com/Haleralex/paybridge
 - **Issue Tracker:** https://github.com/Haleralex/paybridge/issues
-
----
-
-## Support
-
-For questions, issues, or contributions:
-- Open an issue on GitHub
-- Read the documentation in the `docs/` directory
-- Check existing issues for solutions
 
 ---
 
