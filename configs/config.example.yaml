@@ -1,5 +1,6 @@
-# PayBridge Configuration
-# Development configuration - copy and modify for other environments
+# PayBridge Configuration Example
+# Copy this file to config.yaml and fill in your actual values
+# NEVER commit config.yaml with real secrets!
 
 app:
   name: "PayBridge"
@@ -19,7 +20,7 @@ database:
   host: "localhost"
   port: 5432
   user: "postgres"
-  password: "postgres"
+  password: "postgres"  # Change in production!
   database: "paybridge"
   ssl_mode: "disable"
   max_connections: 25
@@ -28,12 +29,12 @@ database:
   max_conn_idle_time: "30m"
 
 auth:
-  jwt_secret: "change-me-in-production"
+  jwt_secret: "change-me-in-production"  # Generate strong secret!
   jwt_issuer: "paybridge"
   access_token_expiry: "15m"
   refresh_token_expiry: "168h"  # 7 days
   enable_mock_auth: true  # ONLY for development!
-  telegram_bot_token: ""  # Set via TELEGRAM_BOT_TOKEN env var - NEVER commit real tokens!
+  telegram_bot_token: ""  # Set via TELEGRAM_BOT_TOKEN env var or get from @BotFather
 
 cors:
   allowed_origins:

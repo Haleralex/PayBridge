@@ -60,6 +60,11 @@ lpt[1-9]
 .env.local
 .env.*.local
 
+# Configuration files with secrets
+configs/config.yaml
+configs/config.*.yaml
+!configs/config.example.yaml
+
 # Logs
 *.log
 logs/
