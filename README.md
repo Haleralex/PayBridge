@@ -30,8 +30,6 @@ PayBridge is a financial-grade payment processing system with support for multi-
 
 ## Features
 
-## Features
-
 ### Architecture & Design
 - **Clean Architecture** - Domain, Application, Infrastructure, and Adapters layers with clear separation of concerns
 - **Domain-Driven Design** - Aggregates, Value Objects, Domain Events, and Repository patterns
@@ -59,15 +57,12 @@ PayBridge is a financial-grade payment processing system with support for multi-
 - **High Test Coverage** - 178 tests across unit, integration, and E2E levels
 - **Docker Support** - Multi-stage builds, Docker Compose for local development
 - **Structured Logging** - Context-aware logging with slog
-- **Comprehensive Documentation** - 25+ docs covering architecture, patterns, and problem-solving
 - **CI/CD Ready** - GitHub Actions workflows for testing and deployment
-- **Database Migrations** - Version-controlled schema evolution with golang-migrate
+- **Database Migrations** - Version-controlled schema evolution
 
 ---
 
 ## Architecture
-
-## 🏗️ Архитектура
 
 ### Clean Architecture Layers
 
@@ -133,11 +128,6 @@ PayBridge/
 │       ├── websocket/              # Real-time communication
 │       └── webhooks/               # External webhook handling
 ├── migrations/                     # SQL schema migrations
-├── docs/                           # Comprehensive documentation (25+ files)
-│   ├── DEEP_DIVE_RU.md            # Architecture deep dive
-│   ├── PHASE_*_SUMMARY.md         # Development phase summaries
-│   ├── SECURITY_GUIDELINES.md     # Security standards
-│   └── adr/                       # Architecture Decision Records
 ├── scripts/                        # Automation scripts
 │   ├── coverage.ps1               # Test coverage analysis
 │   ├── security_audit.ps1         # Security scanning
