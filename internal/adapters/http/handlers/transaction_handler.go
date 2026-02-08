@@ -336,17 +336,17 @@ func (h *TransactionHandler) CancelTransaction(c *gin.Context) {
 // @Failure 500 {object} common.APIResponse
 // @Router /api/v1/wallets/{id}/transactions [get]
 func (h *TransactionHandler) GetWalletTransactions(c *gin.Context) {
-	walletID := c.Param("id")
+	walletID := c.Param("wallet_id")
 	if walletID == "" {
 		common.ValidationErrorResponse(c, []common.FieldError{
-			{Field: "id", Message: "Wallet ID is required", Code: "required"},
+			{Field: "wallet_id", Message: "Wallet ID is required", Code: "required"},
 		})
 		return
 	}
 
 	if _, err := uuid.Parse(walletID); err != nil {
 		common.ValidationErrorResponse(c, []common.FieldError{
-			{Field: "id", Message: "Invalid UUID format", Code: "uuid"},
+			{Field: "wallet_id", Message: "Invalid UUID format", Code: "uuid"},
 		})
 		return
 	}
