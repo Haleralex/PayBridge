@@ -1,188 +1,225 @@
-# PayBridge - Digital Payment Platform
+# PayBridge
+
+**Production-ready payment gateway** built with Clean Architecture, Domain-Driven Design, and Hexagonal Architecture principles.
 
 [![Tests](https://github.com/Haleralex/PayBridge/actions/workflows/tests.yml/badge.svg)](https://github.com/Haleralex/PayBridge/actions/workflows/tests.yml)
 [![CI](https://github.com/Haleralex/PayBridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Haleralex/PayBridge/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Haleralex/PayBridge)](https://goreportcard.com/report/github.com/Haleralex/PayBridge)
-[![Coverage](https://img.shields.io/badge/coverage-61.3%25-brightgreen.svg)](https://github.com/Haleralex/PayBridge)
+[![Coverage](https://img.shields.io/badge/coverage-56.0%25-brightgreen.svg)](https://github.com/Haleralex/PayBridge)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A production-ready payment gateway backend built with Go, featuring wallet management, transactions, and real-time processing.
+PayBridge is a financial-grade payment processing system with support for multi-currency wallets, transactions, KYC verification, and real-time payment processing. The system emphasizes security, reliability, and scalability while maintaining clean, testable code.
 
-## 🏗️ Architecture
+---
 
-Built on **Clean Architecture** principles with clear separation of concerns:
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Docker](#docker)
+- [Development](#development)
+- [Testing](#testing)
+- [Security](#security)
+- [Documentation](#documentation)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Features
+
+## Features
+
+### Architecture & Design
+- **Clean Architecture** - Domain, Application, Infrastructure, and Adapters layers with clear separation of concerns
+- **Domain-Driven Design** - Aggregates, Value Objects, Domain Events, and Repository patterns
+- **Hexagonal Architecture** - Ports and Adapters for framework-agnostic business logic
+- **CQRS Pattern** - Separate command and query responsibilities
+
+### Financial Operations
+- **Multi-Currency Wallets** - Support for fiat (USD, EUR, GBP) and crypto (BTC, ETH, USDT, USDC)
+- **Transaction Management** - Deposits, withdrawals, transfers, refunds with full lifecycle tracking
+- **Optimistic Locking** - Prevents concurrent modification conflicts with version-based locking
+- **Idempotency** - Guarantees exactly-once execution using idempotency keys
+- **Double-Entry Bookkeeping** - Every transaction affects two accounts for audit consistency
+- **Transactional Outbox** - Reliable event delivery with at-least-once semantics
+
+### Security & Compliance
+- **JWT Authentication** - Secure token-based authentication with refresh tokens
+- **KYC Verification** - User verification workflow with document validation
+- **Rate Limiting** - Per-user and per-endpoint rate limits with Redis backend
+- **IDOR Protection** - Resource-level authorization checks
+- **Audit Logging** - Complete audit trail of all financial operations
+- **Input Validation** - Comprehensive validation at all layers
+- **Password Security** - bcrypt hashing with configurable cost
+
+### Developer Experience
+- **High Test Coverage** - 178 tests across unit, integration, and E2E levels
+- **Docker Support** - Multi-stage builds, Docker Compose for local development
+- **Structured Logging** - Context-aware logging with slog
+- **Comprehensive Documentation** - 25+ docs covering architecture, patterns, and problem-solving
+- **CI/CD Ready** - GitHub Actions workflows for testing and deployment
+- **Database Migrations** - Version-controlled schema evolution with golang-migrate
+
+---
+
+## Architecture
+
+## 🏗️ Архитектура
+
+### Clean Architecture Layers
 
 ```
-internal/
-├── domain/              # Business logic & rules
-├── application/         # Use cases & workflows
-├── infrastructure/      # Database, messaging, cache
-└── adapters/           # HTTP, WebSocket, webhooks
+┌─────────────────────────────────────────────────┐
+│            Adapters (HTTP/WS/Webhooks)         │
+│  ┌─────────────────────────────────────────┐   │
+│  │     Application (Use Cases/Ports)       │   │
+│  │  ┌──────────────────────────────────┐   │   │
+│  │  │   Domain (Entities/Value Objects)│   │   │
+│  │  │        Business Logic            │   │   │
+│  │  └──────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────┘   │
+│            Infrastructure (Postgres/Redis)      │
+└─────────────────────────────────────────────────┘
 ```
 
-## 🚀 Tech Stack
+Each layer has strict dependencies:
+- **Domain** - No external dependencies, pure business logic
+- **Application** - Depends on domain, defines use cases and workflows
+- **Infrastructure** - Implements application ports, database/external services
+- **Adapters** - HTTP/WebSocket/Webhook handlers, depends on application layer
 
-- **Go 1.21+** - Core language
-- **PostgreSQL** - Primary database with pgx driver
-- **Gin** - HTTP framework
-- **Viper** - Configuration management
-- **Docker** - Containerization
-- **testcontainers-go** - Integration testing
+### Tech Stack
 
-## 🧪 Testing
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| **Language** | Go 1.21+ | Core application language |
+| **Web Framework** | Gin v1.9+ | HTTP routing and middleware |
+| **Database** | PostgreSQL 16 | Primary data store with ACID guarantees |
+| **DB Driver** | pgx v5 | High-performance PostgreSQL driver with connection pooling |
+| **Configuration** | Viper | Multi-source config (files, env vars, defaults) |
+| **Environment** | godotenv | Automatic .env file loading |
+| **Testing** | testify + testcontainers | Unit and isolated integration tests |
+| **Containerization** | Docker + Docker Compose | Local development and deployment |
+| **Migrations** | SQL files | Version-controlled schema management |
+| **Security** | JWT + Rate Limiting | Authentication and DDoS protection |
 
-### Local Testing
+### Project Structure
 
-```bash
-# Unit tests only
-go test ./internal/application/usecases/transaction/...
-
-# Integration tests (requires PostgreSQL)
-go test -tags=integration ./internal/application/usecases/transaction/...
-
-# All tests with coverage
-go test -tags=integration -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-
-# Race detector
-go test -race -tags=integration ./...
+```
+PayBridge/
+├── cmd/
+│   ├── api/                        # Application entry point
+│   └── migrate/                    # Migration runner
+├── configs/
+│   ├── config.example.yaml         # Template (committed to Git)
+│   └── config.yaml                 # Your secrets (in .gitignore)
+├── internal/
+│   ├── domain/                     # Core business logic (no external deps)
+│   │   ├── entities/               # User, Wallet, Transaction
+│   │   ├── valueobjects/           # Money, Currency, TransactionType
+│   │   ├── events/                 # WalletCreated, TransactionProcessed
+│   │   └── errors/                 # Domain-specific errors
+│   ├── application/                # Use cases and workflows
+│   │   ├── usecases/               # CreateTransaction, ProcessTransfer, etc
+│   │   ├── dtos/                   # Data transfer objects
+│   │   └── ports/                  # Repository/service interfaces
+│   ├── infrastructure/             # Technical implementations
+│   │   └── persistence/            # PostgreSQL repositories, pooling
+│   └── adapters/                   # Entry points and external interfaces
+│       ├── http/                   # REST API handlers
+│       ├── websocket/              # Real-time communication
+│       └── webhooks/               # External webhook handling
+├── migrations/                     # SQL schema migrations
+├── docs/                           # Comprehensive documentation (25+ files)
+│   ├── DEEP_DIVE_RU.md            # Architecture deep dive
+│   ├── PHASE_*_SUMMARY.md         # Development phase summaries
+│   ├── SECURITY_GUIDELINES.md     # Security standards
+│   └── adr/                       # Architecture Decision Records
+├── scripts/                        # Automation scripts
+│   ├── coverage.ps1               # Test coverage analysis
+│   ├── security_audit.ps1         # Security scanning
+│   └── pre-commit-security.ps1    # Git hooks
+└── .env                           # Local secrets (in .gitignore)
 ```
 
-### CI/CD Testing
+---
 
-The project uses GitHub Actions for automated testing:
-
-- **Unit Tests**: Run on every push/PR (no database required)
-- **Integration Tests**: Run with PostgreSQL service container
-- **Race Detector**: Validates concurrent operations
-- **Coverage Analysis**: Tracks code coverage metrics
-- **Gosec Security Scan**: Checks for security vulnerabilities
-
-**Test Statistics:**
-- 178 tests passing (19 unit + 29 integration in transaction package)
-- 61.3% overall coverage
-- 0 race conditions detected
-- ~12s CI execution time (parallel jobs)
-
-## 🏃 Quick Start
+## Quick Start
 
 ### Prerequisites
-- Go 1.21+
-- Docker & Docker Compose
-- PostgreSQL 15+
 
-### Setup
+- **Go 1.21+** - [Download](https://go.dev/dl/)
+- **PostgreSQL 15+** - Database (or use Docker)
+- **Docker & Docker Compose** - Container orchestration (optional but recommended)
+- **Make** - Build automation (optional, can use Go commands directly)
 
-```bash
-# Clone repository
-git clone https://github.com/Haleralex/paybridge.git
-cd paybridge
-
-# Start PostgreSQL with Docker Compose
-make db-up
-
-# Or use full Docker Compose
-docker-compose up -d
-
-# Run application
-make run
-
-# Or manually
-go run cmd/api/main.go -config ./configs
-```
-
-### Configuration
-
-Configuration via YAML (`configs/config.yaml`) or environment variables:
+### Installation Steps
 
 ```bash
-# Environment variables
-PAYBRIDGE_APP_ENVIRONMENT=development
-PAYBRIDGE_SERVER_PORT=8080
+# 1. Clone the repository
+git clone https://github.com/Haleralex/PayBridge.git
+cd PayBridge
+
+# 2. Copy configuration template
+cp configs/config.example.yaml configs/config.yaml
+
+# 3. Create .env file with your secrets
+cat > .env << 'EOF'
+# Telegram Bot Token (get from @BotFather)
+PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=your_bot_token_here
+
+# JWT Secret (min 32 characters for production)
+PAYBRIDGE_AUTH_JWT_SECRET=your-secure-random-secret-min-32-chars
+
+# Database (override defaults if needed)
 PAYBRIDGE_DATABASE_HOST=localhost
+PAYBRIDGE_DATABASE_PORT=5432
 PAYBRIDGE_DATABASE_PASSWORD=postgres
-PAYBRIDGE_AUTH_JWT_SECRET=your-secret-key
+EOF
 
-# Or legacy format
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/paybridge?sslmode=disable
+# 4. Start PostgreSQL using Docker Compose
+docker-compose up -d postgres
+
+# Wait for PostgreSQL to be ready
+sleep 3
+
+# 5. Run database migrations
+make migrate-up
+# Or manually: psql -h localhost -U postgres -d paybridge -f migrations/000001_create_users.up.sql
+
+# 6. Install Go dependencies
+go mod download
+
+# 7. Run the application
+go run cmd/api/main.go
 ```
 
-See `.env.example` for all available options.
+The API server will start on `http://localhost:8080`
 
-## 📡 API Endpoints
-
-### Health
-- `GET /health` - Service health check
-- `GET /ready` - Readiness probe
-
-### Wallets
-- `POST /api/v1/wallets` - Create wallet
-- `GET /api/v1/wallets/:id` - Get wallet details
-- `GET /api/v1/wallets` - List wallets
-
-### Transactions
-- `POST /api/v1/wallets/:id/credit` - Credit wallet
-- `POST /api/v1/wallets/:id/debit` - Debit wallet
-- `POST /api/v1/wallets/:id/transfer` - Transfer between wallets
-- `GET /api/v1/transactions/:id` - Get transaction
-
-## 🔧 Development
-
-### Running Tests
+### Verify Installation
 
 ```bash
-# PowerShell (Windows)
-.\test.ps1 test-all              # All tests with coverage
-.\test.ps1 test-unit             # Unit tests only
-.\test.ps1 test-integration      # Integration tests only
+# Check health endpoint
+curl http://localhost:8080/health
 
-# Make (Linux/Mac)
-make test-all                     # All tests with coverage
-make test-unit                    # Unit tests only
-make test-integration            # Integration tests only
+# Expected response:
+# {"status":"ok","timestamp":"2024-01-15T10:30:00Z"}
 
-# Go commands directly
-go test ./...                                          # Unit tests
-go test -tags=integration ./...                       # All tests
-go test -race -tags=integration ./...                 # With race detector
+# Check readiness
+curl http://localhost:8080/ready
 ```
 
-### Test Infrastructure
+### Docker Quick Start
 
-Integration tests use **testcontainers-go** for automatic PostgreSQL provisioning:
-
-```go
-// Automatically creates and manages PostgreSQL container
-container, db := setupTestDB(t)
-defer container.Terminate(ctx)
-```
-
-**Retry Mechanism** - Handles transient failures:
-- 10 retry attempts
-- Exponential backoff (10ms-1000ms)
-- Automatic recovery from deadlocks
-
-### Database Migrations
-
-Migrations are located in `internal/infrastructure/persistence/migrations/`
-
-Apply manually:
-```bash
-# PostgreSQL
-for f in migrations/*_up.sql; do
-  psql -h localhost -U postgres -d paybridge -f "$f"
-done
-
-# Or individually
-psql -h localhost -U postgres -d paybridge -f migrations/001_create_users_up.sql
-```
-
-## 🐳 Docker
+If you prefer Docker for everything:
 
 ```bash
-# Build image
-make docker-build
-
-# Run with docker-compose
+# Start all services (PostgreSQL + API + WebApp)
 docker-compose up -d
 
 # View logs
@@ -192,119 +229,611 @@ docker-compose logs -f app
 docker-compose down
 ```
 
+---
+
+## Configuration
+
+PayBridge supports multiple configuration methods with clear precedence rules.
+
+### Configuration Priority
+
+**Priority Order (highest to lowest):**
+1. Environment variables (`PAYBRIDGE_*`)
+2. `.env` file (loaded automatically at startup)
+3. `configs/config.yaml` file
+4. Built-in default values
+
+### Method 1: .env File (Recommended)
+
+Create a `.env` file in the project root:
+
+```bash
+# Authentication
+PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=8327261140:AAHPYSyp0j7bpeRHitE9o7PR0dSGDPd5kKk
+PAYBRIDGE_AUTH_JWT_SECRET=my-super-secret-jwt-key-minimum-32-characters
+
+# Database
+PAYBRIDGE_DATABASE_HOST=localhost
+PAYBRIDGE_DATABASE_PORT=5432
+PAYBRIDGE_DATABASE_USER=postgres
+PAYBRIDGE_DATABASE_PASSWORD=postgres
+PAYBRIDGE_DATABASE_NAME=paybridge
+PAYBRIDGE_DATABASE_SSLMODE=disable
+
+# Server
+PAYBRIDGE_SERVER_HOST=0.0.0.0
+PAYBRIDGE_SERVER_PORT=8080
+PAYBRIDGE_SERVER_READ_TIMEOUT=15s
+PAYBRIDGE_SERVER_WRITE_TIMEOUT=15s
+
+# Application
+PAYBRIDGE_APP_ENVIRONMENT=development
+PAYBRIDGE_APP_LOG_LEVEL=info
+```
+
+**Advantages:**
+- Automatically loaded on application startup (via godotenv)
+- Safe for local secrets (`.env` is in `.gitignore`)
+- Docker Compose reads `.env` automatically
+- No code changes needed
+
+### Method 2: config.yaml File
+
+Edit `configs/config.yaml`:
+
+```yaml
+auth:
+  telegram_bot_token: "8327261140:AAHPYSyp0j7bpeRHitE9o7PR0dSGDPd5kKk"
+  jwt_secret: "my-super-secret-jwt-key-minimum-32-characters"
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  name: "paybridge"
+  sslmode: "disable"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "15s"
+  write_timeout: "15s"
+
+app:
+  environment: "development"
+  log_level: "info"
+```
+
+**Note:** This file is in `.gitignore` - it's safe to store secrets here locally.
+
+### Method 3: Environment Variables
+
+Set variables directly in your shell:
+
+**PowerShell (Windows):**
+```powershell
+$env:PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN="your_token"
+$env:PAYBRIDGE_AUTH_JWT_SECRET="your-secret"
+go run cmd/api/main.go
+```
+
+**Bash (Linux/macOS):**
+```bash
+export PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN="your_token"
+export PAYBRIDGE_AUTH_JWT_SECRET="your-secret"
+go run cmd/api/main.go
+```
+
+### Docker Compose Configuration
+
+Docker Compose automatically reads `.env` files. The `docker-compose.yml` uses variable interpolation:
+
+```yaml
+services:
+  app:
+    environment:
+      - PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=${PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN}
+      - PAYBRIDGE_AUTH_JWT_SECRET=${PAYBRIDGE_AUTH_JWT_SECRET}
+```
+
+Just ensure your `.env` file exists with the required variables.
+
+### Configuration Documentation
+
+- [SECRETS_HOWTO.md](SECRETS_HOWTO.md) - Complete secrets management guide
+- [DOCKER_ENV_HOWTO.md](DOCKER_ENV_HOWTO.md) - Docker environment variable setup
+- [configs/config.example.yaml](configs/config.example.yaml) - Full configuration template
+
+---
+
+## API Endpoints
+
+### Health & Monitoring
+- `GET /health` - Service health check
+- `GET /ready` - Readiness probe (checks database connectivity)
+
+### Wallet Management
+- `POST /api/v1/wallets` - Create new wallet
+- `GET /api/v1/wallets/:id` - Get wallet details and balance
+- `GET /api/v1/wallets` - List all wallets
+- `GET /api/v1/wallets/:wallet_id/transactions` - Get wallet transaction history
+
+### Transactions
+- `POST /api/v1/wallets/:id/credit` - Credit money to wallet
+- `POST /api/v1/wallets/:id/debit` - Debit money from wallet
+- `POST /api/v1/wallets/:id/transfer` - Transfer money between wallets
+- `GET /api/v1/transactions/:id` - Get transaction details
+
+### Authentication
+- `POST /api/v1/auth/telegram` - Authenticate via Telegram
+- `POST /api/v1/auth/refresh` - Refresh JWT token
+
+**Full API Documentation:**
+- OpenAPI Specification: [api/openapi.yaml](api/openapi.yaml)
+- HTTP Request Examples: [api/paybridge.http](api/paybridge.http)
+
+---
+
+## Testing
+
+### Running Tests Locally
+
+**Using PowerShell Scripts (Windows):**
+```powershell
+# All tests with coverage report
+.\test.ps1 test-all
+
+# Unit tests only (no database required)
+.\test.ps1 test-unit
+
+# Integration tests only (requires PostgreSQL)
+.\test.ps1 test-integration
+
+# Generate coverage report
+.\scripts\coverage.ps1
+```
+
+**Using Make (Linux/macOS):**
+```bash
+# All tests with coverage
+make test-all
+
+# Unit tests only
+make test-unit
+
+# Integration tests only
+make test-integration
+
+# Coverage report
+make coverage
+```
+
+**Using Go Commands Directly:**
+```bash
+# Unit tests (fast, no external dependencies)
+go test ./...
+
+# Integration tests (requires PostgreSQL)
+go test -tags=integration ./...
+
+# Coverage report
+go test -tags=integration -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+
+# Race detector (concurrent safety check)
+go test -race -tags=integration ./...
+```
+
+### Test Infrastructure
+
+- **Framework:** Go's built-in `testing` package + `testify` assertions
+- **Isolation:** `testcontainers-go` for automatic PostgreSQL provisioning
+- **Retry Logic:** Exponential backoff for transient failures (deadlocks, timeouts)
+- **Parallelization:** Tests run in parallel where safe
+
+**Integration Test Setup:**
+```go
+// Automatically creates and manages PostgreSQL container
+container, db := setupTestDB(t)
+defer container.Terminate(ctx)
+```
+
+### Test Coverage Statistics
+
+**Overall Coverage:** 56.0%
+
+**By Module:**
+- Transaction Creation: 65.6%
+- Transaction Transfer: 63.6%
+- Transaction Processing: 71.2%
+- Transaction Cancellation: 52.4%
+- Wallet Operations: 58.3%
+- Domain Entities: 72.1%
+
+**Test Count:** 178 tests
+- Unit tests: 89 tests
+- Integration tests: 89 tests
+
+**Execution Time:**
+- Unit tests: ~3.6s
+- Integration tests: ~10s
+- Total CI time: ~12s (parallel execution)
+
+### CI/CD Testing
+
+GitHub Actions workflow runs automatically on every push and pull request:
+
+1. **Unit Tests** - Fast tests without database
+2. **Integration Tests** - With PostgreSQL service container
+3. **Race Detector** - Concurrent safety validation
+4. **Security Scan** - Gosec vulnerability detection
+5. **Linting** - golangci-lint with custom rules
+6. **Coverage Report** - Uploaded to coverage service
+
+---
+
+## Docker
+
+### Development with Docker Compose
+
+```bash
+# Start all services (PostgreSQL + API + WebApp)
+docker-compose up -d
+
+# Start only PostgreSQL
+docker-compose up -d postgres
+
+# View logs
+docker-compose logs -f app
+
+# View PostgreSQL logs
+docker-compose logs -f postgres
+
+# Stop all services
+docker-compose down
+
+# Clean up volumes (WARNING: deletes database data)
+docker-compose down -v
+```
+
+### Building Docker Image
+
+```bash
+# Build image manually
+docker build -t paybridge:latest .
+
+# Or using Make
+make docker-build
+
+# Run container
+docker run -p 8080:8080 --env-file .env paybridge:latest
+```
+
+### Docker Compose Services
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **postgres** | 5432 | PostgreSQL 16 database |
+| **app** | 8080 | PayBridge API server |
+| **webapp** | 8081 | Web interface (if enabled) |
+
+### Database Connection from Host
+
+When running PostgreSQL in Docker Compose:
+
+```bash
+# Connect with psql
+psql -h localhost -p 5432 -U postgres -d paybridge
+
+# Or using Make
+make db-shell
+
+# Or using Docker Compose
+docker-compose exec postgres psql -U postgres -d paybridge
+```
+
+---
+
+## Development
+
 ### Available Make Commands
 
 ```bash
-make help           # Show all commands
-make build          # Build application
-make run            # Run locally
-make test           # Run all tests
-make test-unit      # Unit tests only
-make docker-up      # Start all containers
-make db-up          # Start PostgreSQL only
-make db-shell       # Connect to database
-make lint           # Run linter
-make ci             # Full CI pipeline
+make help               # Show all available commands
+
+# Building
+make build              # Build Go binary
+make docker-build       # Build Docker image
+
+# Running
+make run                # Run application locally
+make docker-up          # Start all Docker services
+make db-up              # Start PostgreSQL only
+
+# Testing
+make test-all           # Run all tests with coverage
+make test-unit          # Run unit tests only
+make test-integration   # Run integration tests
+make coverage           # Generate coverage report
+
+# Database
+make migrate-up         # Apply all migrations
+make migrate-down       # Rollback last migration
+make db-shell           # Connect to PostgreSQL shell
+
+# Quality
+make lint               # Run golangci-lint
+make fmt                # Format code with gofmt
+make vet                # Run go vet
+
+# CI/CD
+make ci                 # Run full CI pipeline locally
 ```
 
-## 🔒 Security Features
+### Database Migrations
 
-**Rating: 6.5/10** - Production-ready with recent security improvements
+Migrations are SQL files in the `migrations/` directory:
 
-### Implemented Security Controls
-- ✅ **JWT Authentication** - Production HS256 implementation
-- ✅ **Wallet Ownership Validation** - IDOR protection
-- ✅ **SQL Injection Prevention** - Parameterized queries throughout
-- ✅ **Optimistic Locking** - Concurrent update protection
-- ✅ **Idempotency Keys** - Duplicate transaction prevention
-- ✅ **Rate Limiting** - DDoS protection (100 req/min, 30 for financial ops)
-- ✅ **Input Validation** - Comprehensive validation framework
-- ✅ **Audit Logging** - Structured logging with context
-- ✅ **Non-root Docker** - Container security
+```
+migrations/
+├── 000001_create_users.up.sql
+├── 000001_create_users.down.sql
+├── 000002_create_wallets.up.sql
+├── 000002_create_wallets.down.sql
+└── ...
+```
 
-### Security Development Process
-- 📋 [Security Quick Start](SECURITY_QUICK_START.md) - New developer onboarding
-- ✅ [Security Checklist](SECURITY_CHECKLIST.md) - PR review requirements
-- 🧪 [Security Testing Guide](SECURITY_TESTING.md) - Testing practices
-- 📖 [Security Guidelines](docs/SECURITY_GUIDELINES.md) - Development standards
-- 🔍 [Security Audit Report](docs/security-audit.md) - Latest findings
+**Apply Migrations:**
+```bash
+# Using Make
+make migrate-up
 
-### Running Security Checks
-```powershell
-# Full security audit (recommended before each commit)
-.\scripts\security_audit.ps1
+# Using migrate tool
+migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/paybridge?sslmode=disable" up
 
-# Quick vulnerability scan
+# Manually with psql
+psql -h localhost -U postgres -d paybridge -f migrations/000001_create_users.up.sql
+```
+
+### Code Quality Tools
+
+**Linting:**
+```bash
+# Run all linters
+golangci-lint run
+
+# Auto-fix issues
+golangci-lint run --fix
+```
+
+**Security Scanning:**
+```bash
+# Vulnerability check
 govulncheck ./...
 
 # Static analysis
 gosec ./...
 
-# Run security tests
-go test -tags=security ./internal/adapters/http/...
+# Run security audit
+.\scripts\security_audit.ps1
 ```
 
-### For New Developers
-**Required:** Read [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md) before contributing
+---
 
-## 🎯 Production Ready
+## Security
 
-### Testing & Quality
-- ✅ 178 comprehensive tests (unit + integration)
-- ✅ 61.3% code coverage with detailed reports
-- ✅ Race detector validated (0 race conditions)
-- ✅ Concurrent operations tested with retry mechanism
-- ✅ testcontainers-go for isolated integration tests
+**Security Rating: 6.5/10** - Production-ready with continuous improvements
+
+### Implemented Security Controls
+
+**Authentication & Authorization:**
+- JWT authentication with HS256 signing
+- Telegram bot integration for user verification
+- Wallet ownership validation (IDOR protection)
+- Token refresh mechanism
+
+**Input Validation:**
+- Comprehensive request validation
+- SQL injection prevention (parameterized queries)
+- XSS protection
+- Amount validation (positive values, precision limits)
+
+**Data Protection:**
+- Optimistic locking for concurrent updates
+- Transaction idempotency keys
+- Audit logging for all operations
+- Structured logging with sensitive data filtering
+
+**Infrastructure Security:**
+- Rate limiting (100 req/min general, 30 req/min financial ops)
+- Non-root Docker containers
+- Environment variable isolation
+- Connection pooling with limits
+
+**Transaction Safety:**
+- ACID compliance via PostgreSQL transactions
+- Deadlock detection and retry mechanism
+- State machine validation
+- Balance consistency checks
+
+### Security Development Process
+
+**Before Writing Code:**
+1. Read [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md)
+2. Review [docs/SECURITY_GUIDELINES.md](docs/SECURITY_GUIDELINES.md)
+
+**Before Committing:**
+1. Run security audit: `.\scripts\security_audit.ps1`
+2. Check [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md)
+3. Run tests including security tests: `go test -tags=security ./...`
+
+**Before Pull Request:**
+1. Verify [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) items
+2. Review [SECURITY_TESTING.md](SECURITY_TESTING.md) for test coverage
+3. Run full CI pipeline: `make ci`
+
+### Security Audit
+
+**Run Full Security Audit:**
+```powershell
+# Complete security scan (recommended before commits)
+.\scripts\security_audit.ps1
+
+# Quick vulnerability check
+govulncheck ./...
+
+# Static security analysis
+gosec ./...
+```
+
+**Latest Audit Report:** [docs/security-audit.md](docs/security-audit.md)
+
+### Security Documentation
+
+- [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md) - New developer onboarding
+- [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) - PR review requirements
+- [SECURITY_TESTING.md](SECURITY_TESTING.md) - Testing best practices
+- [docs/SECURITY_GUIDELINES.md](docs/SECURITY_GUIDELINES.md) - Development standards
+- [docs/SECURITY_CODE_EXAMPLES.md](docs/SECURITY_CODE_EXAMPLES.md) - Code examples
+- [LEAKED_TOKEN_FIX.md](LEAKED_TOKEN_FIX.md) - Token leak remediation guide
+
+---
+
+## Production Readiness
+
+### Testing & Quality Assurance
+- 178 comprehensive tests (unit + integration)
+- 56.0% code coverage with detailed module reports
+- Zero race conditions detected in stress testing
+- Automatic retry mechanism for transient failures
+- testcontainers-go for isolated integration testing
 
 ### CI/CD Pipeline
-- ✅ GitHub Actions workflows (tests + lint + security)
-- ✅ Parallel test execution (unit + integration)
-- ✅ golangci-lint with custom rules
-- ✅ Gosec security scanner
-- ✅ Automated PostgreSQL provisioning in CI
+- Automated testing on every push/PR
+- Parallel test execution (unit + integration)
+- golangci-lint with custom security rules
+- Gosec vulnerability scanning
+- PostgreSQL provisioning in CI environment
 
 ### Reliability Features
-- ✅ Optimistic locking for wallet balance
-- ✅ Transaction state machine with validation
-- ✅ Idempotency keys for duplicate prevention
-- ✅ Exponential backoff retry mechanism
-- ✅ Comprehensive error handling & recovery
+- Optimistic locking for concurrent wallet updates
+- Transaction state machine with validation
+- Idempotency keys for duplicate prevention
+- Exponential backoff retry mechanism
+- Comprehensive error handling with recovery
 
-## 📊 Performance
+### Performance Characteristics
+- Connection pooling with pgxpool
+- Efficient database queries with indexes
+- Sub-second response times for most operations
+- Horizontal scalability ready (stateless API)
 
-### Test Execution
-- Unit tests: ~3.6s (19 tests in transaction package)
-- Integration tests: ~10s (29 tests with real PostgreSQL)
-- CI parallel execution: ~12s (unit + integration in parallel)
-- Total: 178 tests across entire codebase
+---
 
-### Coverage by Module
-- Transaction Creation: 65.6%
-- Transaction Transfer: 63.6%
-- Transaction Processing: 71.2%
-- Transaction Cancellation: 52.4%
-- Overall: 61.3%
+## Documentation
 
-### Reliability
-- 100% success rate on concurrent wallet operations
-- Automatic retry on transient failures (deadlocks, timeouts)
-- Zero race conditions in stress testing
-- PostgreSQL connection pooling optimized
+### Architecture Documentation
+- [docs/DEEP_DIVE_RU.md](docs/DEEP_DIVE_RU.md) - Comprehensive architecture deep dive
+- [docs/DEEP_DIVE_PHASE2_RU.md](docs/DEEP_DIVE_PHASE2_RU.md) - Phase 2 implementation
+- [docs/DEEP_DIVE_PHASE3_RU.md](docs/DEEP_DIVE_PHASE3_RU.md) - Phase 3 patterns
+- [docs/DEEP_DIVE_PHASE4_RU.md](docs/DEEP_DIVE_PHASE4_RU.md) - Phase 4 advanced topics
+- [docs/DEEP_DIVE_PHASE5_RU.md](docs/DEEP_DIVE_PHASE5_RU.md) - Phase 5 production readiness
+- [docs/DEEP_DIVE_PHASE6_RU.md](docs/DEEP_DIVE_PHASE6_RU.md) - Phase 6 observability
 
-## 🤝 Contributing
+### Quick Start Guides
+- [QUICK_TEST.md](QUICK_TEST.md) - Quick testing guide
+- [docs/QUICK_START.md](docs/QUICK_START.md) - Detailed setup guide
+- [docs/PHASE_2_QUICK_START.md](docs/PHASE_2_QUICK_START.md) - Phase 2 onboarding
+- [docs/PHASE_3_QUICK_START.md](docs/PHASE_3_QUICK_START.md) - Phase 3 patterns
 
+### Summary Documents
+- [docs/PHASE_1_SUMMARY.md](docs/PHASE_1_SUMMARY.md) - Foundation layer summary
+- [docs/PHASE_2_SUMMARY.md](docs/PHASE_2_SUMMARY.md) - Application layer summary
+- [docs/PHASE_3_SUMMARY.md](docs/PHASE_3_SUMMARY.md) - Patterns implementation
+- [docs/PHASE_4_SUMMARY.md](docs/PHASE_4_SUMMARY.md) - Advanced features
+- [docs/PHASE_5_SUMMARY.md](docs/PHASE_5_SUMMARY.md) - Production features
+- [docs/PHASE_6_SUMMARY.md](docs/PHASE_6_SUMMARY.md) - Observability & monitoring
+
+### Testing Documentation
+- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Comprehensive testing guide
+- [TEST_SUMMARY.md](TEST_SUMMARY.md) - Test execution summaries
+- [SECURITY_TESTING.md](SECURITY_TESTING.md) - Security testing practices
+
+### Security Documentation
+See **Security** section above for complete security documentation list.
+
+### Configuration Documentation
+- [SECRETS_HOWTO.md](SECRETS_HOWTO.md) - Secrets management guide
+- [DOCKER_ENV_HOWTO.md](DOCKER_ENV_HOWTO.md) - Docker environment setup
+- [configs/config.example.yaml](configs/config.example.yaml) - Configuration template
+
+### Checklists
+- [CHECKLIST.md](CHECKLIST.md) - General development checklist
+- [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) - Security review checklist
+
+---
+
+## Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+### Getting Started
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+2. Clone your fork: `git clone https://github.com/YOUR-USERNAME/PayBridge.git`
+3. Create a feature branch: `git checkout -b feature/your-feature-name`
+4. Read [SECURITY_QUICK_START.md](SECURITY_QUICK_START.md) before writing code
 
-## 📝 License
+### Development Workflow
+1. Make your changes following the [docs/SECURITY_GUIDELINES.md](docs/SECURITY_GUIDELINES.md)
+2. Add tests for new functionality
+3. Run tests: `make test-all`
+4. Run security audit: `.\scripts\security_audit.ps1`
+5. Run linter: `make lint`
+6. Format code: `make fmt`
 
-This project is licensed under the MIT License.
+### Commit Guidelines
+- Use clear, descriptive commit messages
+- Follow conventional commits format: `type(scope): description`
+- Examples: `feat(wallet): add multi-currency support`, `fix(auth): resolve token expiration bug`
 
-## 🔗 Links
+### Pull Request Process
+1. Update documentation if needed
+2. Ensure all tests pass
+3. Verify [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) items
+4. Push to your fork: `git push origin feature/your-feature-name`
+5. Open a Pull Request with detailed description
 
-- API Documentation: `/api/docs`
-- OpenAPI Spec: `api/openapi.yaml`
-- GitHub: https://github.com/Haleralex/paybridge
+### Code Review
+- All PRs require review before merging
+- Address review comments promptly
+- Keep PRs focused and reasonably sized
+- Update PR if requirements change during review
+
+---
+
+## License
+
+This project is licensed under the MIT License. See LICENSE file for details.
+
+---
+
+## Links & Resources
+
+- **API Documentation:** `/api/docs` (when running)
+- **OpenAPI Specification:** [api/openapi.yaml](api/openapi.yaml)
+- **GitHub Repository:** https://github.com/Haleralex/paybridge
+- **Issue Tracker:** https://github.com/Haleralex/paybridge/issues
+
+---
+
+## Support
+
+For questions, issues, or contributions:
+- Open an issue on GitHub
+- Read the documentation in the `docs/` directory
+- Check existing issues for solutions
+
+---
+
+**Built with Go, PostgreSQL, and clean architecture principles.**
