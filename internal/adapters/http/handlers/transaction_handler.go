@@ -336,7 +336,7 @@ func (h *TransactionHandler) CancelTransaction(c *gin.Context) {
 // @Failure 500 {object} common.APIResponse
 // @Router /api/v1/wallets/{id}/transactions [get]
 func (h *TransactionHandler) GetWalletTransactions(c *gin.Context) {
-	walletID := c.Param("wallet_id")
+	walletID := c.Param("id")
 	if walletID == "" {
 		common.ValidationErrorResponse(c, []common.FieldError{
 			{Field: "wallet_id", Message: "Wallet ID is required", Code: "required"},
@@ -407,7 +407,7 @@ func (h *TransactionHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 // RegisterWalletTransactionsRoute регистрирует маршрут для транзакций кошелька.
 //
-// Route: GET /wallets/:wallet_id/transactions
+// Route: GET /wallets/:id/transactions
 func (h *TransactionHandler) RegisterWalletTransactionsRoute(walletRoutes *gin.RouterGroup) {
-	walletRoutes.GET("/:wallet_id/transactions", h.GetWalletTransactions)
+	walletRoutes.GET("/:id/transactions", h.GetWalletTransactions)
 }

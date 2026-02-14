@@ -625,20 +625,21 @@
 
                 container.innerHTML = transactions.slice(0, 10).map(tx => {
                     const isCredit = tx.type === 'CREDIT';
-                    const isDebit = tx.type === 'DEBIT';
-                    const isTransfer = tx.type === 'TRANSFER';
+                    const isIncomingTransfer = tx.type === 'TRANSFER' && tx.destination_wallet_id === currentWallet.id;
+                    const isPositive = isCredit || isIncomingTransfer;
+                    const icon = isCredit ? '+' : isIncomingTransfer ? '↓' : tx.type === 'TRANSFER' ? '↑' : '-';
 
                     return `
                         <div class="tx-item">
                             <div class="tx-icon ${tx.type.toLowerCase()}">
-                                ${isCredit ? '+' : isDebit ? '-' : '↔'}
+                                ${icon}
                             </div>
                             <div class="tx-info">
-                                <div class="type">${tx.description || tx.type}</div>
+                                <div class="type">${tx.description || (isIncomingTransfer ? 'Incoming transfer' : tx.type)}</div>
                                 <div class="date">${new Date(tx.created_at).toLocaleDateString()}</div>
                             </div>
-                            <div class="tx-amount ${isCredit ? 'positive' : 'negative'}">
-                                ${isCredit ? '+' : '-'}${tx.amount}
+                            <div class="tx-amount ${isPositive ? 'positive' : 'negative'}">
+                                ${isPositive ? '+' : '-'}${tx.amount}
                             </div>
                         </div>
                     `;
@@ -773,10 +774,31 @@
         }
 
         // Init - authenticate first, then load wallets
+        // Refresh current wallet balance and transactions from server
+        async function refreshWallet() {
+            if (!currentWallet || !AUTH_TOKEN) return;
+            try {
+                const data = await api('/wallets/me', { method: 'POST' });
+                const updated = (data.data?.wallets || []).find(w => w.id === currentWallet.id);
+                if (updated && updated.available_balance !== currentWallet.available_balance) {
+                    currentWallet = updated;
+                    wallets = wallets.map(w => w.id === updated.id ? updated : w);
+                    updateBalance();
+                    loadTransactions();
+                }
+            } catch (e) {
+                // silent — polling failure is not critical
+            }
+        }
+
+        let pollingInterval = null;
+
         document.addEventListener('DOMContentLoaded', async () => {
             const authenticated = await telegramAuth();
             if (authenticated) {
                 await loadWallets();
+                // Poll every 5 seconds for balance/transaction updates
+                pollingInterval = setInterval(refreshWallet, 5000);
             }
         });
     </script>

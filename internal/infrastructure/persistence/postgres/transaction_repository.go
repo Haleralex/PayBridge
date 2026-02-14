@@ -244,7 +244,7 @@ func (r *TransactionRepository) List(ctx context.Context, filter ports.Transacti
 	argNum := 1
 
 	if filter.WalletID != nil {
-		query += fmt.Sprintf(" AND t.wallet_id = $%d", argNum)
+		query += fmt.Sprintf(" AND (t.wallet_id = $%d OR t.destination_wallet_id = $%d)", argNum, argNum)
 		args = append(args, *filter.WalletID)
 		argNum++
 	}

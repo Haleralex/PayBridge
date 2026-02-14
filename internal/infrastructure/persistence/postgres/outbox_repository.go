@@ -262,9 +262,71 @@ func (r *OutboxRepository) CleanupPublished(ctx context.Context, olderThan time.
 
 // Helper functions
 
-// serializeEvent сериализует DomainEvent в JSON.
+// serializeEvent сериализует DomainEvent в JSON с правильными ключами.
+// Стандартный json.Marshal не работает для типов с приватными полями (Money, BaseEvent).
 func serializeEvent(event events.DomainEvent) ([]byte, error) {
-	return json.Marshal(event)
+	var data map[string]interface{}
+
+	switch e := event.(type) {
+	case *events.WalletCredited:
+		data = map[string]interface{}{
+			"wallet_id":      e.WalletID.String(),
+			"amount":         e.Amount.String(),
+			"currency":       e.Amount.Currency().Code(),
+			"transaction_id": e.TransactionID.String(),
+			"balance_after":  e.BalanceAfter.String(),
+		}
+	case *events.WalletDebited:
+		data = map[string]interface{}{
+			"wallet_id":      e.WalletID.String(),
+			"amount":         e.Amount.String(),
+			"currency":       e.Amount.Currency().Code(),
+			"transaction_id": e.TransactionID.String(),
+			"balance_after":  e.BalanceAfter.String(),
+		}
+	case *events.TransactionCompleted:
+		data = map[string]interface{}{
+			"transaction_id":   e.TransactionID.String(),
+			"wallet_id":        e.WalletID.String(),
+			"transaction_type": e.TransactionType,
+			"amount":           e.Amount.String(),
+			"currency":         e.Amount.Currency().Code(),
+			"completed_at":     e.CompletedAt,
+		}
+	case *events.TransactionCreated:
+		data = map[string]interface{}{
+			"transaction_id":   e.TransactionID.String(),
+			"wallet_id":        e.WalletID.String(),
+			"transaction_type": e.TransactionType,
+			"amount":           e.Amount.String(),
+			"currency":         e.Amount.Currency().Code(),
+			"idempotency_key":  e.IdempotencyKey,
+		}
+	case *events.TransactionFailed:
+		data = map[string]interface{}{
+			"transaction_id":   e.TransactionID.String(),
+			"wallet_id":        e.WalletID.String(),
+			"transaction_type": e.TransactionType,
+			"amount":           e.Amount.String(),
+			"currency":         e.Amount.Currency().Code(),
+			"failure_reason":   e.FailureReason,
+			"is_retryable":     e.IsRetryable,
+		}
+	case *events.WalletCreated:
+		data = map[string]interface{}{
+			"user_id":  e.UserID.String(),
+			"currency": e.Currency.Code(),
+		}
+	case *events.UserCreated:
+		data = map[string]interface{}{
+			"email":     e.Email,
+			"full_name": e.FullName,
+		}
+	default:
+		return json.Marshal(event)
+	}
+
+	return json.Marshal(data)
 }
 
 // deserializeEvent десериализует событие из JSON.

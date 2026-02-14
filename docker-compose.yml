@@ -66,6 +66,52 @@ services:
     restart: unless-stopped
 
   # ============================================
+  # NATS Message Broker
+  # ============================================
+  nats:
+    image: nats:alpine
+    container_name: paybridge-nats
+    command: ["--jetstream", "--store_dir", "/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "nats-server", "--help"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - paybridge-network
+
+  # ============================================
+  # Notification Service
+  # ============================================
+  notifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.notifier
+    container_name: paybridge-notifier
+    environment:
+      - PAYBRIDGE_DATABASE_HOST=postgres
+      - PAYBRIDGE_DATABASE_PORT=5432
+      - PAYBRIDGE_DATABASE_USER=postgres
+      - PAYBRIDGE_DATABASE_PASSWORD=postgres
+      - PAYBRIDGE_DATABASE_DATABASE=paybridge
+      - PAYBRIDGE_NATS_URL=nats://nats:4222
+      - PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=${PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    networks:
+      - paybridge-network
+    restart: unless-stopped
+
+  # ============================================
   # Telegram Mini App (webapp)
   # ============================================
   webapp:
@@ -111,3 +157,4 @@ networks:
 # ============================================
 volumes:
   postgres_data:
+  nats_data:

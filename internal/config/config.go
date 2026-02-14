@@ -32,6 +32,8 @@ type Config struct {
 	CORS     CORSConfig     `mapstructure:"cors"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
 	Log      LogConfig      `mapstructure:"log"`
+	NATS     NATSConfig     `mapstructure:"nats"`
+	Notifier NotifierConfig `mapstructure:"notifier"`
 }
 
 // ============================================
@@ -166,6 +168,28 @@ type LogConfig struct {
 }
 
 // ============================================
+// NATS Configuration
+// ============================================
+
+// NATSConfig - конфигурация NATS.
+type NATSConfig struct {
+	URL           string        `mapstructure:"url"`
+	StreamName    string        `mapstructure:"stream_name"`
+	ReconnectWait time.Duration `mapstructure:"reconnect_wait"`
+}
+
+// ============================================
+// Notifier Configuration
+// ============================================
+
+// NotifierConfig - конфигурация сервиса уведомлений.
+type NotifierConfig struct {
+	PollInterval time.Duration `mapstructure:"poll_interval"`
+	BatchSize    int           `mapstructure:"batch_size"`
+	MaxRetries   int           `mapstructure:"max_retries"`
+}
+
+// ============================================
 // Configuration Loading
 // ============================================
 
@@ -295,6 +319,16 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("rate_limit.financial_ops_per_min", 30)
 	v.SetDefault("rate_limit.cleanup_interval", "1m")
 
+	// NATS defaults
+	v.SetDefault("nats.url", "nats://localhost:4222")
+	v.SetDefault("nats.stream_name", "PAYBRIDGE")
+	v.SetDefault("nats.reconnect_wait", "2s")
+
+	// Notifier defaults
+	v.SetDefault("notifier.poll_interval", "2s")
+	v.SetDefault("notifier.batch_size", 50)
+	v.SetDefault("notifier.max_retries", 5)
+
 	// Log defaults
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "json")
@@ -320,6 +354,9 @@ func bindEnvVars(v *viper.Viper) {
 
 	// App
 	_ = v.BindEnv("app.environment", "PAYBRIDGE_APP_ENVIRONMENT", "ENVIRONMENT", "ENV")
+
+	// NATS
+	_ = v.BindEnv("nats.url", "PAYBRIDGE_NATS_URL", "NATS_URL")
 }
 
 // ============================================
@@ -414,6 +451,16 @@ func Development() *Config {
 			Level:  "debug",
 			Format: "text",
 			Output: "stdout",
+		},
+		NATS: NATSConfig{
+			URL:           "nats://localhost:4222",
+			StreamName:    "PAYBRIDGE",
+			ReconnectWait: 2 * time.Second,
+		},
+		Notifier: NotifierConfig{
+			PollInterval: 2 * time.Second,
+			BatchSize:    50,
+			MaxRetries:   5,
 		},
 	}
 }
