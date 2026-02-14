@@ -127,7 +127,7 @@ func ownerGetWalletMock(userID string) *mockGetWalletUseCase {
 // ============================================
 
 func TestNewWalletHandler(t *testing.T) {
-	handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
+	handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
 	assert.NotNil(t, handler)
 }
 
@@ -153,7 +153,7 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -174,7 +174,7 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 	})
 
 	t.Run("NotAuthenticated", func(t *testing.T) {
-		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouter(handler)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -191,7 +191,7 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 
 	t.Run("InvalidCurrency", func(t *testing.T) {
 		userID := uuid.New().String()
-		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -214,7 +214,7 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -249,7 +249,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, mockUseCase, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase, nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+walletID, nil)
@@ -274,7 +274,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, mockUseCase, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase, nil)
 		router := setupWalletTestRouterWithAuth(handler, authUserID)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+walletID, nil)
@@ -286,7 +286,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, &mockGetWalletUseCase{}, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, &mockGetWalletUseCase{}, nil)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/not-a-uuid", nil)
@@ -304,7 +304,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, mockUseCase, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase, nil)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+uuid.New().String(), nil)
@@ -316,7 +316,7 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 	})
 
 	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+uuid.New().String(), nil)
@@ -346,7 +346,7 @@ func TestWalletHandler_ListWallets(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, mockUseCase)
 		router := setupWalletTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets", nil)
@@ -370,7 +370,7 @@ func TestWalletHandler_ListWallets(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, mockUseCase)
 		router := setupWalletTestRouter(handler)
 
 		userID := uuid.New().String()
@@ -383,7 +383,7 @@ func TestWalletHandler_ListWallets(t *testing.T) {
 	})
 
 	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets", nil)
@@ -415,7 +415,7 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, mockCredit, nil, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(nil, mockCredit, nil, nil, nil, ownerGetWalletMock(userID), nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
@@ -436,7 +436,7 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 		authUserID := uuid.New().String()
 		ownerUserID := uuid.New().String()
 
-		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, ownerGetWalletMock(ownerUserID), nil)
+		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, nil, ownerGetWalletMock(ownerUserID), nil)
 		router := setupWalletTestRouterWithAuth(handler, authUserID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
@@ -455,7 +455,7 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 
 	t.Run("InvalidAmount", func(t *testing.T) {
 		userID := uuid.New().String()
-		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, nil, ownerGetWalletMock(userID), nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(map[string]interface{}{
@@ -480,7 +480,7 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, mockCredit, nil, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(nil, mockCredit, nil, nil, nil, ownerGetWalletMock(userID), nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
@@ -518,7 +518,7 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, mockDebit, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(nil, nil, mockDebit, nil, nil, ownerGetWalletMock(userID), nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(DebitWalletRequest{
@@ -543,7 +543,7 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, mockDebit, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(nil, nil, mockDebit, nil, nil, ownerGetWalletMock(userID), nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(DebitWalletRequest{
@@ -561,7 +561,7 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 	})
 
 	t.Run("NilGetWalletUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		body, _ := json.Marshal(DebitWalletRequest{
@@ -596,7 +596,7 @@ func TestWalletHandler_Transfer(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, mockTransfer, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(nil, nil, nil, mockTransfer, nil, ownerGetWalletMock(userID), nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(TransferFundsRequest{
@@ -622,7 +622,7 @@ func TestWalletHandler_Transfer(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, mockTransfer, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(nil, nil, nil, mockTransfer, nil, ownerGetWalletMock(userID), nil)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(TransferFundsRequest{
@@ -641,7 +641,7 @@ func TestWalletHandler_Transfer(t *testing.T) {
 	})
 
 	t.Run("NilGetWalletUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		body, _ := json.Marshal(TransferFundsRequest{
@@ -677,7 +677,7 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, mockUseCase)
 		router := gin.New()
 
 		// Manually set auth middleware
@@ -697,7 +697,7 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 	})
 
 	t.Run("NotAuthenticated", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, &mockListWalletsUseCase{})
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, &mockListWalletsUseCase{})
 		router := setupWalletTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/me", nil)
@@ -711,7 +711,7 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 	t.Run("NilUseCase", func(t *testing.T) {
 		userID := uuid.New()
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
 		router := gin.New()
 
 		router.Use(func(c *gin.Context) {
@@ -731,7 +731,7 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 }
 
 func TestWalletHandler_RegisterRoutes(t *testing.T) {
-	handler := NewWalletHandler(nil, nil, nil, nil, nil, nil)
+	handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
 	router := gin.New()
 	handler.RegisterRoutes(router.Group("/api/v1"))
 

@@ -77,12 +77,13 @@ type UserUseCases struct {
 
 // WalletUseCases - provider для wallet use cases.
 type WalletUseCases struct {
-	CreateWallet  handlers.CreateWalletUseCase
-	CreditWallet  handlers.CreditWalletUseCase
-	DebitWallet   handlers.DebitWalletUseCase
-	TransferFunds handlers.TransferFundsUseCase
-	GetWallet     handlers.GetWalletUseCase
-	ListWallets   handlers.ListWalletsUseCase
+	CreateWallet     handlers.CreateWalletUseCase
+	CreditWallet     handlers.CreditWalletUseCase
+	DebitWallet      handlers.DebitWalletUseCase
+	TransferFunds    handlers.TransferFundsUseCase
+	ExchangeCurrency handlers.ExchangeCurrencyUseCase
+	GetWallet        handlers.GetWalletUseCase
+	ListWallets      handlers.ListWalletsUseCase
 }
 
 // TransactionUseCases - provider для transaction use cases.
@@ -281,6 +282,7 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				b.wallets.CreditWallet,
 				b.wallets.DebitWallet,
 				b.wallets.TransferFunds,
+				b.wallets.ExchangeCurrency,
 				b.wallets.GetWallet,
 				b.wallets.ListWallets,
 			)
@@ -299,6 +301,7 @@ func (b *RouterBuilder) Build() *gin.Engine {
 					financialOps.POST("/:id/credit", walletHandler.CreditWallet)
 					financialOps.POST("/:id/debit", walletHandler.DebitWallet)
 					financialOps.POST("/:id/transfer", walletHandler.Transfer)
+					financialOps.POST("/:id/exchange", walletHandler.ExchangeCurrency)
 				}
 			}
 		}

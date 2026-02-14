@@ -34,6 +34,7 @@ type Config struct {
 	Log      LogConfig      `mapstructure:"log"`
 	NATS     NATSConfig     `mapstructure:"nats"`
 	Notifier NotifierConfig `mapstructure:"notifier"`
+	Exchange ExchangeConfig `mapstructure:"exchange"`
 }
 
 // ============================================
@@ -190,6 +191,18 @@ type NotifierConfig struct {
 }
 
 // ============================================
+// Exchange Configuration
+// ============================================
+
+// ExchangeConfig - конфигурация сервиса обмена валют.
+type ExchangeConfig struct {
+	APIKey        string        `mapstructure:"api_key"`
+	APIURL        string        `mapstructure:"api_url"`
+	CacheTTL      time.Duration `mapstructure:"cache_ttl"`
+	SpreadPercent float64       `mapstructure:"spread_percent"`
+}
+
+// ============================================
 // Configuration Loading
 // ============================================
 
@@ -329,6 +342,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("notifier.batch_size", 50)
 	v.SetDefault("notifier.max_retries", 5)
 
+	// Exchange defaults
+	v.SetDefault("exchange.api_url", "https://v6.exchangerate-api.com/v6")
+	v.SetDefault("exchange.api_key", "")
+	v.SetDefault("exchange.cache_ttl", "4h")
+	v.SetDefault("exchange.spread_percent", 0.5)
+
 	// Log defaults
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "json")
@@ -357,6 +376,10 @@ func bindEnvVars(v *viper.Viper) {
 
 	// NATS
 	_ = v.BindEnv("nats.url", "PAYBRIDGE_NATS_URL", "NATS_URL")
+
+	// Exchange
+	_ = v.BindEnv("exchange.api_key", "PAYBRIDGE_EXCHANGE_API_KEY")
+	_ = v.BindEnv("exchange.spread_percent", "PAYBRIDGE_EXCHANGE_SPREAD_PERCENT")
 }
 
 // ============================================

@@ -25,6 +25,7 @@ import (
 	"github.com/Haleralex/wallethub/internal/application/usecases/user"
 	"github.com/Haleralex/wallethub/internal/application/usecases/wallet"
 	"github.com/Haleralex/wallethub/internal/config"
+	"github.com/Haleralex/wallethub/internal/infrastructure/exchange"
 	"github.com/Haleralex/wallethub/internal/infrastructure/persistence/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -68,6 +69,7 @@ type Container struct {
 	processTransactionUC     *transaction.ProcessTransactionUseCase
 	cancelTransactionUC      *transaction.CancelTransactionUseCase
 	transferBetweenWalletsUC *transaction.TransferBetweenWalletsUseCase
+	exchangeCurrencyUC      *transaction.ExchangeCurrencyUseCase
 	getByIdempotencyKeyUC   *transaction.GetTransactionByIdempotencyKeyUseCase
 	getTransactionUC        *transaction.GetTransactionUseCase
 	listTransactionsUC      *transaction.ListTransactionsUseCase
@@ -230,6 +232,21 @@ func (c *Container) initUseCases() {
 		c.eventPublisher,
 		c.uow,
 	)
+
+	// Exchange Currency
+	exchangeProvider := exchange.NewProvider(
+		c.config.Exchange.APIKey,
+		c.config.Exchange.APIURL,
+		c.config.Exchange.CacheTTL,
+	)
+	c.exchangeCurrencyUC = transaction.NewExchangeCurrencyUseCase(
+		c.walletRepo,
+		c.transactionRepo,
+		exchangeProvider,
+		c.eventPublisher,
+		c.uow,
+		c.config.Exchange.SpreadPercent,
+	)
 	c.getByIdempotencyKeyUC = transaction.NewGetTransactionByIdempotencyKeyUseCase(c.transactionRepo)
 	c.getTransactionUC = transaction.NewGetTransactionUseCase(c.transactionRepo)
 	c.listTransactionsUC = transaction.NewListTransactionsUseCase(c.transactionRepo)
@@ -275,12 +292,13 @@ func (c *Container) initHTTPServer() {
 			StartKYC:   c.startKYCUC,
 		}).
 		WithWalletUseCases(&http.WalletUseCases{
-			CreateWallet:  c.createWalletUC,
-			CreditWallet:  c.creditWalletUC,
-			DebitWallet:   c.debitWalletUC,
-			TransferFunds: c.transferBetweenWalletsUC,
-			GetWallet:     c.getWalletUC,
-			ListWallets:   c.listWalletsUC,
+			CreateWallet:     c.createWalletUC,
+			CreditWallet:     c.creditWalletUC,
+			DebitWallet:      c.debitWalletUC,
+			TransferFunds:    c.transferBetweenWalletsUC,
+			ExchangeCurrency: c.exchangeCurrencyUC,
+			GetWallet:        c.getWalletUC,
+			ListWallets:      c.listWalletsUC,
 		}).
 		WithTransactionUseCases(&http.TransactionUseCases{
 			GetTransaction:      c.getTransactionUC,

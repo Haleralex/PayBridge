@@ -22,13 +22,15 @@ const (
 	TransactionTypeFee        TransactionType = "FEE"        // System fee
 	TransactionTypeRefund     TransactionType = "REFUND"     // Refund of previous transaction
 	TransactionTypeAdjustment TransactionType = "ADJUSTMENT" // Manual adjustment (admin)
+	TransactionTypeExchange   TransactionType = "EXCHANGE"   // Currency exchange between own wallets
 )
 
 // IsValid checks if the transaction type is valid.
 func (t TransactionType) IsValid() bool {
 	switch t {
 	case TransactionTypeDeposit, TransactionTypeWithdraw, TransactionTypePayout,
-		TransactionTypeTransfer, TransactionTypeFee, TransactionTypeRefund, TransactionTypeAdjustment:
+		TransactionTypeTransfer, TransactionTypeFee, TransactionTypeRefund, TransactionTypeAdjustment,
+		TransactionTypeExchange:
 		return true
 	default:
 		return false
@@ -296,10 +298,10 @@ func (t *Transaction) IsFinal() bool {
 
 // SetDestinationWallet sets the destination wallet for transfers.
 func (t *Transaction) SetDestinationWallet(walletID uuid.UUID) error {
-	if t.transactionType != TransactionTypeTransfer {
+	if t.transactionType != TransactionTypeTransfer && t.transactionType != TransactionTypeExchange {
 		return errors.NewBusinessRuleViolation(
 			"INVALID_TRANSACTION_TYPE",
-			"destination wallet only applies to transfer transactions",
+			"destination wallet only applies to transfer or exchange transactions",
 			map[string]interface{}{"type": t.transactionType},
 		)
 	}

@@ -36,6 +36,11 @@ type TransferFundsUseCase interface {
 	Execute(ctx context.Context, cmd dtos.TransferFundsCommand) (*dtos.TransferResultDTO, error)
 }
 
+// ExchangeCurrencyUseCase - интерфейс для обмена валюты.
+type ExchangeCurrencyUseCase interface {
+	Execute(ctx context.Context, cmd dtos.ExchangeCurrencyCommand) (*dtos.ExchangeResultDTO, error)
+}
+
 // GetWalletUseCase - интерфейс для получения кошелька.
 type GetWalletUseCase interface {
 	Execute(ctx context.Context, query dtos.GetWalletQuery) (*dtos.WalletDTO, error)
@@ -52,12 +57,13 @@ type ListWalletsUseCase interface {
 
 // WalletHandler обрабатывает HTTP запросы для кошельков.
 type WalletHandler struct {
-	createWallet  CreateWalletUseCase
-	creditWallet  CreditWalletUseCase
-	debitWallet   DebitWalletUseCase
-	transferFunds TransferFundsUseCase
-	getWallet     GetWalletUseCase
-	listWallets   ListWalletsUseCase
+	createWallet     CreateWalletUseCase
+	creditWallet     CreditWalletUseCase
+	debitWallet      DebitWalletUseCase
+	transferFunds    TransferFundsUseCase
+	exchangeCurrency ExchangeCurrencyUseCase
+	getWallet        GetWalletUseCase
+	listWallets      ListWalletsUseCase
 }
 
 // NewWalletHandler создаёт новый WalletHandler.
@@ -66,16 +72,18 @@ func NewWalletHandler(
 	creditWallet CreditWalletUseCase,
 	debitWallet DebitWalletUseCase,
 	transferFunds TransferFundsUseCase,
+	exchangeCurrency ExchangeCurrencyUseCase,
 	getWallet GetWalletUseCase,
 	listWallets ListWalletsUseCase,
 ) *WalletHandler {
 	return &WalletHandler{
-		createWallet:  createWallet,
-		creditWallet:  creditWallet,
-		debitWallet:   debitWallet,
-		transferFunds: transferFunds,
-		getWallet:     getWallet,
-		listWallets:   listWallets,
+		createWallet:     createWallet,
+		creditWallet:     creditWallet,
+		debitWallet:      debitWallet,
+		transferFunds:    transferFunds,
+		exchangeCurrency: exchangeCurrency,
+		getWallet:        getWallet,
+		listWallets:      listWallets,
 	}
 }
 
@@ -118,6 +126,13 @@ type TransferFundsRequest struct {
 	Amount              string `json:"amount" binding:"required,money_amount"`
 	IdempotencyKey      string `json:"idempotency_key" binding:"required,uuid"`
 	Description         string `json:"description" binding:"required,min=1,max=500"`
+}
+
+// ExchangeCurrencyRequest - запрос на обмен валюты.
+type ExchangeCurrencyRequest struct {
+	DestinationWalletID string `json:"destination_wallet_id" binding:"required,uuid"`
+	Amount              string `json:"amount" binding:"required,money_amount"`
+	IdempotencyKey      string `json:"idempotency_key" binding:"required,uuid"`
 }
 
 // WalletIDParam - параметр ID кошелька из URL.
@@ -460,6 +475,43 @@ func (h *WalletHandler) Transfer(c *gin.Context) {
 	}
 
 	result, err := h.transferFunds.Execute(c.Request.Context(), cmd)
+	if err != nil {
+		common.HandleDomainError(c, err)
+		return
+	}
+
+	common.Success(c, http.StatusOK, result)
+}
+
+// ExchangeCurrency обрабатывает обмен валюты между кошельками пользователя.
+func (h *WalletHandler) ExchangeCurrency(c *gin.Context) {
+	var params WalletIDParam
+	if !BindURI(c, &params) {
+		return
+	}
+
+	if !h.checkWalletOwnership(c, params.ID) {
+		return
+	}
+
+	var req ExchangeCurrencyRequest
+	if !BindJSON(c, &req) {
+		return
+	}
+
+	cmd := dtos.ExchangeCurrencyCommand{
+		SourceWalletID:      params.ID,
+		DestinationWalletID: req.DestinationWalletID,
+		Amount:              req.Amount,
+		IdempotencyKey:      req.IdempotencyKey,
+	}
+
+	if h.exchangeCurrency == nil {
+		common.InternalErrorResponse(c, "ExchangeCurrency use case not implemented")
+		return
+	}
+
+	result, err := h.exchangeCurrency.Execute(c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return

@@ -322,6 +322,17 @@ func serializeEvent(event events.DomainEvent) ([]byte, error) {
 			"email":     e.Email,
 			"full_name": e.FullName,
 		}
+	case *events.CurrencyExchanged:
+		data = map[string]interface{}{
+			"transaction_id":      e.TransactionID.String(),
+			"source_wallet_id":    e.SourceWalletID.String(),
+			"destination_wallet_id": e.DestinationWalletID.String(),
+			"source_amount":       e.SourceAmount.String(),
+			"destination_amount":  e.DestinationAmount.String(),
+			"exchange_rate":       e.ExchangeRate,
+			"source_currency":     e.SourceCurrency,
+			"destination_currency": e.DestinationCurrency,
+		}
 	default:
 		return json.Marshal(event)
 	}

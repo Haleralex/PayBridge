@@ -87,8 +87,8 @@
         /* Action Buttons */
         .actions {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
             margin-bottom: 24px;
         }
 
@@ -122,6 +122,27 @@
         .action-btn.deposit .icon { background: #4CAF50; }
         .action-btn.withdraw .icon { background: #FF9800; }
         .action-btn.transfer .icon { background: #2196F3; }
+        .action-btn.exchange .icon { background: #9C27B0; }
+
+        .exchange-info {
+            background: var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .exchange-info .rate {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--tg-theme-button-color);
+        }
+
+        .exchange-info .result {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+            margin-top: 4px;
+        }
 
         .action-btn span {
             font-size: 12px;
@@ -163,6 +184,7 @@
         .tx-icon.credit { background: #E8F5E9; }
         .tx-icon.debit { background: #FFF3E0; }
         .tx-icon.transfer { background: #E3F2FD; }
+        .tx-icon.exchange { background: #F3E5F5; }
 
         .tx-info {
             flex: 1;
@@ -362,6 +384,10 @@
                 <div class="icon">↔</div>
                 <span>Transfer</span>
             </button>
+            <button class="action-btn exchange" onclick="openModal('exchange')">
+                <div class="icon">💱</div>
+                <span>Exchange</span>
+            </button>
         </div>
 
         <!-- Transactions -->
@@ -390,7 +416,15 @@
                     <label>Destination Wallet ID</label>
                     <input type="text" id="destinationWallet" placeholder="Paste wallet ID here">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="exchangeDestGroup" style="display:none">
+                    <label>Exchange to</label>
+                    <select id="exchangeDestWallet"></select>
+                </div>
+                <div id="exchangeInfo" class="exchange-info" style="display:none">
+                    <div class="rate" id="exchangeRate">-</div>
+                    <div class="result" id="exchangeResult">Enter amount to see conversion</div>
+                </div>
+                <div class="form-group" id="descriptionGroup">
                     <label>Description (optional)</label>
                     <input type="text" id="description" placeholder="What's this for?">
                 </div>
@@ -626,8 +660,13 @@
                 container.innerHTML = transactions.slice(0, 10).map(tx => {
                     const isCredit = tx.type === 'CREDIT';
                     const isIncomingTransfer = tx.type === 'TRANSFER' && tx.destination_wallet_id === currentWallet.id;
-                    const isPositive = isCredit || isIncomingTransfer;
-                    const icon = isCredit ? '+' : isIncomingTransfer ? '↓' : tx.type === 'TRANSFER' ? '↑' : '-';
+                    const isExchange = tx.type === 'EXCHANGE';
+                    const isIncomingExchange = isExchange && tx.destination_wallet_id === currentWallet.id;
+                    const isPositive = isCredit || isIncomingTransfer || isIncomingExchange;
+                    const icon = isCredit ? '+' : isIncomingTransfer ? '↓' : isExchange ? '💱' : tx.type === 'TRANSFER' ? '↑' : '-';
+                    const typeLabel = isExchange ? (tx.description || 'Currency exchange') :
+                                     isIncomingTransfer ? 'Incoming transfer' :
+                                     (tx.description || tx.type);
 
                     return `
                         <div class="tx-item">
@@ -635,7 +674,7 @@
                                 ${icon}
                             </div>
                             <div class="tx-info">
-                                <div class="type">${tx.description || (isIncomingTransfer ? 'Incoming transfer' : tx.type)}</div>
+                                <div class="type">${typeLabel}</div>
                                 <div class="date">${new Date(tx.created_at).toLocaleDateString()}</div>
                             </div>
                             <div class="tx-amount ${isPositive ? 'positive' : 'negative'}">
@@ -660,15 +699,36 @@
             const titles = {
                 deposit: 'Deposit Funds',
                 withdraw: 'Withdraw Funds',
-                transfer: 'Transfer Money'
+                transfer: 'Transfer Money',
+                exchange: 'Exchange Currency'
             };
             document.getElementById('modalTitle').textContent = titles[operation];
             document.getElementById('destinationGroup').style.display =
                 operation === 'transfer' ? 'block' : 'none';
+            document.getElementById('exchangeDestGroup').style.display =
+                operation === 'exchange' ? 'block' : 'none';
+            document.getElementById('exchangeInfo').style.display =
+                operation === 'exchange' ? 'block' : 'none';
+            document.getElementById('descriptionGroup').style.display =
+                operation === 'exchange' ? 'none' : 'block';
 
-            // Clear destination input for transfer
             if (operation === 'transfer') {
                 document.getElementById('destinationWallet').value = '';
+            }
+
+            if (operation === 'exchange') {
+                // Populate destination wallet select with wallets of different currency
+                const select = document.getElementById('exchangeDestWallet');
+                const otherWallets = wallets.filter(w => w.id !== currentWallet.id && w.currency_code !== currentWallet.currency_code);
+                if (otherWallets.length === 0) {
+                    select.innerHTML = '<option value="">No wallets with other currency</option>';
+                } else {
+                    select.innerHTML = otherWallets.map(w =>
+                        `<option value="${w.id}">${w.currency_code} (${parseBalance(w.available_balance).toFixed(2)})</option>`
+                    ).join('');
+                }
+                document.getElementById('exchangeRate').textContent = '-';
+                document.getElementById('exchangeResult').textContent = 'Enter amount to see conversion';
             }
 
             document.getElementById('modalOverlay').classList.add('active');
@@ -717,6 +777,18 @@
                             description
                         };
                         break;
+                    case 'exchange':
+                        const exchDest = document.getElementById('exchangeDestWallet').value;
+                        if (!exchDest) {
+                            throw new Error('Please select destination wallet');
+                        }
+                        endpoint = `/wallets/${currentWallet.id}/exchange`;
+                        body = {
+                            destination_wallet_id: exchDest,
+                            amount,
+                            idempotency_key: idempotencyKey
+                        };
+                        break;
                 }
 
                 const result = await api(endpoint, {
@@ -729,6 +801,13 @@
                     currentWallet.available_balance = result.data.wallet.available_balance;
                 } else if (result.data?.source_wallet?.available_balance) {
                     currentWallet.available_balance = result.data.source_wallet.available_balance;
+                    // Also update destination wallet in local state
+                    if (result.data?.destination_wallet) {
+                        const destW = wallets.find(w => w.id === result.data.destination_wallet.id);
+                        if (destW) {
+                            destW.available_balance = result.data.destination_wallet.available_balance;
+                        }
+                    }
                 }
 
                 updateBalance();

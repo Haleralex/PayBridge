@@ -40,6 +40,28 @@ type TransferFundsCommand struct {
 	Description         string `json:"description" validate:"required"`
 }
 
+// ExchangeCurrencyCommand - команда для обмена валюты между своими кошельками.
+type ExchangeCurrencyCommand struct {
+	SourceWalletID      string `json:"source_wallet_id" validate:"required,uuid"`
+	DestinationWalletID string `json:"destination_wallet_id" validate:"required,uuid"`
+	Amount              string `json:"amount" validate:"required"`
+	IdempotencyKey      string `json:"idempotency_key" validate:"required,uuid"`
+}
+
+// ExchangeResultDTO - результат обмена валюты.
+type ExchangeResultDTO struct {
+	SourceWallet      WalletDTO `json:"source_wallet"`
+	DestinationWallet WalletDTO `json:"destination_wallet"`
+	TransactionID     string    `json:"transaction_id"`
+	SourceAmount      string    `json:"source_amount"`
+	DestinationAmount string    `json:"destination_amount"`
+	ExchangeRate      string    `json:"exchange_rate"`
+	Spread            string    `json:"spread"`
+	SourceCurrency    string    `json:"source_currency"`
+	DestCurrency      string    `json:"dest_currency"`
+	Status            string    `json:"status"`
+}
+
 // UpdateWalletStatusCommand - команда для изменения статуса кошелька.
 type UpdateWalletStatusCommand struct {
 	WalletID string `json:"wallet_id" validate:"required,uuid"`

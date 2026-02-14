@@ -79,6 +79,7 @@ const (
 	EventTypeTransactionCreated   = "transaction.created"
 	EventTypeTransactionCompleted = "transaction.completed"
 	EventTypeTransactionFailed    = "transaction.failed"
+	EventTypeCurrencyExchanged    = "transaction.exchange.completed"
 )
 
 // ===== User Events =====
@@ -291,6 +292,37 @@ func NewTransactionFailed(
 		Amount:          amount,
 		FailureReason:   failureReason,
 		IsRetryable:     isRetryable,
+	}
+}
+
+// CurrencyExchanged is raised when a currency exchange completes.
+type CurrencyExchanged struct {
+	BaseEvent
+	TransactionID       uuid.UUID
+	SourceWalletID      uuid.UUID
+	DestinationWalletID uuid.UUID
+	SourceAmount        valueobjects.Money
+	DestinationAmount   valueobjects.Money
+	ExchangeRate        string
+	SourceCurrency      string
+	DestinationCurrency string
+}
+
+func NewCurrencyExchanged(
+	transactionID, sourceWalletID, destWalletID uuid.UUID,
+	sourceAmount, destAmount valueobjects.Money,
+	exchangeRate, sourceCurrency, destCurrency string,
+) *CurrencyExchanged {
+	return &CurrencyExchanged{
+		BaseEvent:           newBaseEvent(EventTypeCurrencyExchanged, transactionID),
+		TransactionID:       transactionID,
+		SourceWalletID:      sourceWalletID,
+		DestinationWalletID: destWalletID,
+		SourceAmount:        sourceAmount,
+		DestinationAmount:   destAmount,
+		ExchangeRate:        exchangeRate,
+		SourceCurrency:      sourceCurrency,
+		DestinationCurrency: destCurrency,
 	}
 }
 
