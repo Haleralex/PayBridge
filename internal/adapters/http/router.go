@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 // ============================================
@@ -176,7 +177,10 @@ func (b *RouterBuilder) Build() *gin.Engine {
 		EnableStackTrace: b.config.Environment != "production",
 	}))
 
-	// 2. Request ID
+	// 2. OpenTelemetry tracing
+	router.Use(otelgin.Middleware("paybridge-api"))
+
+	// 3. Request ID
 	router.Use(middleware.RequestID())
 
 	// 3. CORS

@@ -27,7 +27,9 @@ import (
 	"github.com/Haleralex/wallethub/internal/config"
 	"github.com/Haleralex/wallethub/internal/infrastructure/exchange"
 	"github.com/Haleralex/wallethub/internal/infrastructure/persistence/postgres"
+	"github.com/Haleralex/wallethub/internal/infrastructure/telemetry"
 	"github.com/jackc/pgx/v5/pgxpool"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 // ============================================
@@ -40,7 +42,8 @@ type Container struct {
 	logger *slog.Logger
 
 	// Infrastructure
-	pool *pgxpool.Pool
+	pool           *pgxpool.Pool
+	tracerProvider *sdktrace.TracerProvider
 
 	// Repositories
 	userRepo        ports.UserRepository
@@ -95,6 +98,11 @@ func (c *Container) Initialize(ctx context.Context) error {
 	c.logger = c.initLogger()
 	c.logger.Info("Initializing application container...")
 
+	// 0. Telemetry (tracing)
+	if err := c.initTracing(ctx); err != nil {
+		c.logger.Warn("Failed to initialize tracing, continuing without it", slog.String("error", err.Error()))
+	}
+
 	// 1. Database
 	if err := c.initDatabase(ctx); err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
@@ -114,6 +122,25 @@ func (c *Container) Initialize(ctx context.Context) error {
 	c.logger.Info("HTTP server initialized")
 
 	c.logger.Info("Container initialization complete")
+	return nil
+}
+
+// initTracing инициализирует OpenTelemetry трейсинг.
+func (c *Container) initTracing(ctx context.Context) error {
+	if !c.config.Telemetry.Enabled {
+		c.logger.Info("Telemetry disabled, skipping tracing init")
+		return nil
+	}
+
+	tp, err := telemetry.InitTracer(ctx, c.config.App.Name, c.config.Telemetry.OTLPEndpoint)
+	if err != nil {
+		return err
+	}
+
+	c.tracerProvider = tp
+	c.logger.Info("Tracing initialized",
+		slog.String("endpoint", c.config.Telemetry.OTLPEndpoint),
+	)
 	return nil
 }
 
@@ -436,7 +463,14 @@ func (c *Container) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	// 2. Database (даём время на завершение транзакций)
+	// 2. Tracer Provider
+	if c.tracerProvider != nil {
+		if err := c.tracerProvider.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("tracer shutdown: %w", err))
+		}
+	}
+
+	// 3. Database (даём время на завершение транзакций)
 	if c.pool != nil {
 		// Graceful close с таймаутом
 		done := make(chan struct{})

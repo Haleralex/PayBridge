@@ -50,11 +50,14 @@ services:
       - PAYBRIDGE_AUTH_ENABLE_MOCK_AUTH=true
       - PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=${PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN}  # From .env file
       - PAYBRIDGE_AUTH_JWT_SECRET=${PAYBRIDGE_AUTH_JWT_SECRET:-change-me-in-production}
+      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=jaeger:4318
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
       interval: 10s
@@ -102,14 +105,31 @@ services:
       - PAYBRIDGE_DATABASE_DATABASE=paybridge
       - PAYBRIDGE_NATS_URL=nats://nats:4222
       - PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=${PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN}
+      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=jaeger:4318
     depends_on:
       postgres:
         condition: service_healthy
       nats:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     networks:
       - paybridge-network
     restart: unless-stopped
+
+  # ============================================
+  # Jaeger (Distributed Tracing)
+  # ============================================
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: paybridge-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - paybridge-network
 
   # ============================================
   # Telegram Mini App (webapp)

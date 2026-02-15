@@ -22,6 +22,7 @@ import (
 	"github.com/Haleralex/wallethub/internal/infrastructure/notification"
 	"github.com/Haleralex/wallethub/internal/infrastructure/persistence/postgres"
 	"github.com/Haleralex/wallethub/internal/infrastructure/poller"
+	"github.com/Haleralex/wallethub/internal/infrastructure/telemetry"
 )
 
 func main() {
@@ -46,6 +47,21 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Initialize tracing
+	if cfg.Telemetry.Enabled {
+		tp, err := telemetry.InitTracer(ctx, "paybridge-notifier", cfg.Telemetry.OTLPEndpoint)
+		if err != nil {
+			logger.Warn("Failed to initialize tracing", slog.String("error", err.Error()))
+		} else {
+			defer func() {
+				shutdownCtx, c := context.WithTimeout(context.Background(), 5*time.Second)
+				defer c()
+				_ = tp.Shutdown(shutdownCtx)
+			}()
+			logger.Info("Tracing initialized", slog.String("endpoint", cfg.Telemetry.OTLPEndpoint))
+		}
+	}
 
 	// Connect to PostgreSQL
 	poolConfig, err := pgxpool.ParseConfig(cfg.Database.DSN())

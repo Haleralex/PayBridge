@@ -119,7 +119,7 @@ func (p *OutboxPoller) poll(ctx context.Context) {
 			OccurredAt:  event.OccurredAt(),
 		}
 
-		if err := p.publisher.Publish(msg); err != nil {
+		if err := p.publisher.Publish(ctx, msg); err != nil {
 			p.logger.Error("Failed to publish event to NATS",
 				slog.String("event_id", event.EventID().String()),
 				slog.String("error", err.Error()),

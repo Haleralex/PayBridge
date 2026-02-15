@@ -34,7 +34,8 @@ type Config struct {
 	Log      LogConfig      `mapstructure:"log"`
 	NATS     NATSConfig     `mapstructure:"nats"`
 	Notifier NotifierConfig `mapstructure:"notifier"`
-	Exchange ExchangeConfig `mapstructure:"exchange"`
+	Exchange  ExchangeConfig  `mapstructure:"exchange"`
+	Telemetry TelemetryConfig `mapstructure:"telemetry"`
 }
 
 // ============================================
@@ -191,6 +192,16 @@ type NotifierConfig struct {
 }
 
 // ============================================
+// Telemetry Configuration
+// ============================================
+
+// TelemetryConfig - конфигурация OpenTelemetry трейсинга.
+type TelemetryConfig struct {
+	Enabled      bool   `mapstructure:"enabled"`
+	OTLPEndpoint string `mapstructure:"otlp_endpoint"`
+}
+
+// ============================================
 // Exchange Configuration
 // ============================================
 
@@ -342,6 +353,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("notifier.batch_size", 50)
 	v.SetDefault("notifier.max_retries", 5)
 
+	// Telemetry defaults
+	v.SetDefault("telemetry.enabled", true)
+	v.SetDefault("telemetry.otlp_endpoint", "http://jaeger:4318")
+
 	// Exchange defaults
 	v.SetDefault("exchange.api_url", "https://v6.exchangerate-api.com/v6")
 	v.SetDefault("exchange.api_key", "")
@@ -376,6 +391,10 @@ func bindEnvVars(v *viper.Viper) {
 
 	// NATS
 	_ = v.BindEnv("nats.url", "PAYBRIDGE_NATS_URL", "NATS_URL")
+
+	// Telemetry
+	_ = v.BindEnv("telemetry.enabled", "PAYBRIDGE_TELEMETRY_ENABLED")
+	_ = v.BindEnv("telemetry.otlp_endpoint", "PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT")
 
 	// Exchange
 	_ = v.BindEnv("exchange.api_key", "PAYBRIDGE_EXCHANGE_API_KEY")

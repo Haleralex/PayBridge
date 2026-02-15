@@ -8,6 +8,9 @@ import (
 	"strings"
 
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // EventHandler processes an event message.
@@ -44,6 +47,7 @@ func (s *Subscriber) Handle(subject string, handler EventHandler) {
 func (s *Subscriber) Start(ctx context.Context) error {
 	for subject, handler := range s.handlers {
 		h := handler // capture for closure
+		subj := subject
 		// Each subject needs a unique durable consumer name
 		durableName := "notifier-" + strings.ReplaceAll(subject, ".", "-")
 
@@ -55,16 +59,33 @@ func (s *Subscriber) Start(ctx context.Context) error {
 				return
 			}
 
-			if err := h(ctx, &eventMsg); err != nil {
+			// Extract trace context from NATS headers
+			propagator := otel.GetTextMapPropagator()
+			msgCtx := propagator.Extract(ctx, natsHeaderCarrier(msg.Header))
+
+			tracer := otel.Tracer("paybridge.nats.subscriber")
+			msgCtx, span := tracer.Start(msgCtx, "nats.process",
+				trace.WithAttributes(
+					attribute.String("messaging.system", "nats"),
+					attribute.String("messaging.source", subj),
+					attribute.String("messaging.event_id", eventMsg.EventID),
+					attribute.String("messaging.event_type", eventMsg.EventType),
+				),
+			)
+
+			if err := h(msgCtx, &eventMsg); err != nil {
+				span.RecordError(err)
 				s.logger.Error("Failed to handle event",
 					slog.String("event_id", eventMsg.EventID),
 					slog.String("event_type", eventMsg.EventType),
 					slog.String("error", err.Error()),
 				)
+				span.End()
 				_ = msg.Nak()
 				return
 			}
 
+			span.End()
 			_ = msg.Ack()
 		}, nats.Durable(durableName), nats.ManualAck())
 

@@ -13,6 +13,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Context keys for correlation data
@@ -113,11 +115,17 @@ func (h *ContextHandler) Handle(ctx context.Context, r slog.Record) error {
 	if userID := GetUserID(ctx); userID != "" {
 		r.AddAttrs(slog.String("user_id", userID))
 	}
-	if traceID := GetTraceID(ctx); traceID != "" {
-		r.AddAttrs(slog.String("trace_id", traceID))
-	}
-	if spanID := GetSpanID(ctx); spanID != "" {
-		r.AddAttrs(slog.String("span_id", spanID))
+	// Extract trace_id/span_id from OTel span if available, fall back to context keys
+	if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
+		r.AddAttrs(slog.String("trace_id", span.SpanContext().TraceID().String()))
+		r.AddAttrs(slog.String("span_id", span.SpanContext().SpanID().String()))
+	} else {
+		if traceID := GetTraceID(ctx); traceID != "" {
+			r.AddAttrs(slog.String("trace_id", traceID))
+		}
+		if spanID := GetSpanID(ctx); spanID != "" {
+			r.AddAttrs(slog.String("span_id", spanID))
+		}
 	}
 
 	return h.handler.Handle(ctx, r)
