@@ -1,0 +1,19 @@
+# Fly.io config for PayBridge Notifier service
+app = "paybridge-notifier"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile.notifier"
+
+[experimental]
+  cmd = ["-config", "/app/configs", "-config-name", "config.production"]
+
+[env]
+  PAYBRIDGE_DATABASE_SSL_MODE = "require"
+  PAYBRIDGE_NATS_URL = "nats://paybridge-nats.internal:4222"
+  PAYBRIDGE_TELEMETRY_ENABLED = "true"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
