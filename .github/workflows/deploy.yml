@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: superfly/flyctl-actions/setup-flyctl@1
 
       - name: Deploy API
         run: flyctl deploy --config fly.api.toml --remote-only
@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: superfly/flyctl-actions/setup-flyctl@1
 
       - name: Deploy Notifier
         run: flyctl deploy --config fly.notifier.toml --remote-only
