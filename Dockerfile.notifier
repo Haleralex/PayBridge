@@ -30,5 +30,4 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-ENTRYPOINT ["/app/notifier"]
-CMD ["-config", "/app/configs", "-config-name", "config"]
+CMD ["/app/notifier", "-config", "/app/configs", "-config-name", "config"]

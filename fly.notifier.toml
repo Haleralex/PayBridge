@@ -6,11 +6,11 @@ primary_region = "fra"
   dockerfile = "Dockerfile.notifier"
 
 [experimental]
-  cmd = ["-config", "/app/configs", "-config-name", "config.production"]
+  cmd = ["/app/notifier", "-config", "/app/configs", "-config-name", "config.production"]
 
 [env]
-  PAYBRIDGE_DATABASE_SSL_MODE = "require"
-  PAYBRIDGE_DATABASE_SSLMODE = "require"
+  PAYBRIDGE_DATABASE_SSL_MODE = "disable"
+  PAYBRIDGE_DATABASE_SSLMODE = "disable"
   PAYBRIDGE_NATS_URL = "nats://paybridge-nats.internal:4222"
   PAYBRIDGE_TELEMETRY_ENABLED = "true"
 
