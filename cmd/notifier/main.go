@@ -120,6 +120,9 @@ func main() {
 	// Create Telegram sender
 	botToken := cfg.Auth.TelegramBotToken
 	if botToken == "" {
+		botToken = os.Getenv("PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN")
+	}
+	if botToken == "" {
 		logger.Error("Telegram bot token is required for notification service")
 		os.Exit(1)
 	}
