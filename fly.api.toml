@@ -1,0 +1,34 @@
+# Fly.io config for PayBridge API
+app = "paybridge-api"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[experimental]
+  cmd = ["-config", "/app/configs", "-config-name", "config.production"]
+
+[deploy]
+  release_command = "/app/migrate -path /app/migrations -command up"
+
+[env]
+  PAYBRIDGE_DATABASE_SSL_MODE = "require"
+  PAYBRIDGE_NATS_URL = "nats://paybridge-nats.internal:4222"
+  PAYBRIDGE_TELEMETRY_ENABLED = "true"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
