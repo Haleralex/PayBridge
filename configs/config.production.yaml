@@ -1,9 +1,7 @@
 # PayBridge Production Configuration
 #
 # IMPORTANT: Do NOT commit secrets to version control!
-# Use environment variables for sensitive data:
-#   - PAYBRIDGE_DATABASE_PASSWORD
-#   - PAYBRIDGE_AUTH_JWT_SECRET
+# Secrets are set via: fly secrets set KEY=VALUE
 
 app:
   name: "PayBridge"
@@ -20,28 +18,28 @@ server:
   shutdown_timeout: "60s"
 
 database:
-  host: "${DB_HOST}"           # Set via env: PAYBRIDGE_DATABASE_HOST
+  host: ""        # Set via PAYBRIDGE_DATABASE_HOST secret
   port: 5432
-  user: "${DB_USER}"           # Set via env: PAYBRIDGE_DATABASE_USER
-  password: "${DB_PASSWORD}"   # Set via env: PAYBRIDGE_DATABASE_PASSWORD
+  user: ""        # Set via PAYBRIDGE_DATABASE_USER secret
+  password: ""    # Set via PAYBRIDGE_DATABASE_PASSWORD secret
   database: "paybridge"
   ssl_mode: "require"
-  max_connections: 50
-  min_connections: 10
+  max_connections: 10
+  min_connections: 2
   max_conn_lifetime: "1h"
   max_conn_idle_time: "30m"
 
 auth:
-  jwt_secret: "${JWT_SECRET}"  # Set via env: PAYBRIDGE_AUTH_JWT_SECRET
+  jwt_secret: ""      # Set via PAYBRIDGE_AUTH_JWT_SECRET secret
   jwt_issuer: "paybridge"
   access_token_expiry: "15m"
   refresh_token_expiry: "168h"
-  enable_mock_auth: false      # MUST be false in production!
+  enable_mock_auth: false
+  telegram_bot_token: ""  # Set via PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN secret
 
 cors:
   allowed_origins:
-    - "https://paybridge.example.com"
-    - "https://admin.paybridge.example.com"
+    - "https://paybridge-api.fly.dev"
   allowed_methods:
     - "GET"
     - "POST"
@@ -69,6 +67,15 @@ rate_limit:
   burst_size: 10
   financial_ops_per_min: 20
   cleanup_interval: "5m"
+
+nats:
+  url: "nats://paybridge-nats.internal:4222"
+  stream_name: "PAYBRIDGE"
+  reconnect_wait: "2s"
+
+telemetry:
+  enabled: true
+  otlp_endpoint: ""  # Set via PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT secret
 
 log:
   level: "info"
