@@ -37,6 +37,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -o /app/paybridge \
     ./cmd/api
 
+# Build migrate tool
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o /app/migrate \
+    ./cmd/migrate
+
 # ============================================
 # Stage 2: Production
 # ============================================
@@ -59,6 +65,10 @@ COPY --from=builder /app/configs /app/configs
 
 # Copy webapp for static serving
 COPY --from=builder /app/webapp /app/webapp
+
+# Copy migrate binary and migrations
+COPY --from=builder /app/migrate /app/migrate
+COPY --from=builder /app/migrations /app/migrations
 
 # Set ownership
 RUN chown -R appuser:appuser /app
