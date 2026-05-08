@@ -1,9 +1,10 @@
-// Package telemetry provides OpenTelemetry distributed tracing setup.
 package telemetry
 
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -14,12 +15,21 @@ import (
 )
 
 // InitTracer initializes OpenTelemetry TracerProvider with OTLP HTTP exporter.
+// Supports both plain HTTP (Jaeger) and HTTPS with auth headers (Grafana Cloud).
+// Set OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic <key>" for authenticated endpoints.
 // Returns TracerProvider for graceful shutdown via tp.Shutdown(ctx).
 func InitTracer(ctx context.Context, serviceName, otlpEndpoint string) (*sdktrace.TracerProvider, error) {
-	exporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpoint(otlpEndpoint),
-		otlptracehttp.WithInsecure(),
-	)
+	endpoint := normalizeEndpoint(otlpEndpoint)
+
+	opts := []otlptracehttp.Option{
+		otlptracehttp.WithEndpointURL(endpoint),
+	}
+
+	if headersEnv := os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"); headersEnv != "" {
+		opts = append(opts, otlptracehttp.WithHeaders(parseOTLPHeaders(headersEnv)))
+	}
+
+	exporter, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
@@ -38,7 +48,6 @@ func InitTracer(ctx context.Context, serviceName, otlpEndpoint string) (*sdktrac
 		sdktrace.WithResource(res),
 	)
 
-	// Set global TracerProvider and propagator
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
@@ -46,4 +55,27 @@ func InitTracer(ctx context.Context, serviceName, otlpEndpoint string) (*sdktrac
 	))
 
 	return tp, nil
+}
+
+// normalizeEndpoint ensures the endpoint has a URL scheme.
+// "jaeger:4318" → "http://jaeger:4318" (backward compat with docker-compose env var)
+// "https://..." → unchanged
+func normalizeEndpoint(endpoint string) string {
+	if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
+		return endpoint
+	}
+	return "http://" + endpoint
+}
+
+// parseOTLPHeaders parses "key=value,key2=value2" format (OTel standard).
+func parseOTLPHeaders(raw string) map[string]string {
+	headers := make(map[string]string)
+	for _, pair := range strings.Split(raw, ",") {
+		pair = strings.TrimSpace(pair)
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 && kv[0] != "" {
+			headers[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return headers
 }
