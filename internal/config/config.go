@@ -241,6 +241,7 @@ func Load(configPath, configName string) (*Config, error) {
 	v.SetEnvPrefix("PAYBRIDGE")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+	bindEnvVars(v)
 
 	// Читаем конфигурационный файл
 	if err := v.ReadInConfig(); err != nil {
