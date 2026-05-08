@@ -328,6 +328,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.access_token_expiry", "15m")
 	v.SetDefault("auth.refresh_token_expiry", "168h") // 7 days
 	v.SetDefault("auth.enable_mock_auth", true)
+	v.SetDefault("auth.telegram_bot_token", "")
 
 	// CORS defaults
 	v.SetDefault("cors.allowed_origins", []string{"*"})
