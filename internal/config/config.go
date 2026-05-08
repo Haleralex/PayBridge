@@ -413,6 +413,10 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("JWT secret must be changed in production")
 		}
 
+		if c.Auth.JWTSecret == "" {
+			return fmt.Errorf("JWT secret must be set in production")
+		}
+
 		if c.Auth.EnableMockAuth {
 			return fmt.Errorf("mock auth must be disabled in production")
 		}
