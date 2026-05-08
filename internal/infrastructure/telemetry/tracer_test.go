@@ -33,6 +33,11 @@ func TestParseOTLPHeaders(t *testing.T) {
 			input:    " Authorization=Basic abc , X-Scope-OrgID=1 ",
 			expected: map[string]string{"Authorization": "Basic abc", "X-Scope-OrgID": "1"},
 		},
+		{
+			name:  "base64 value with padding equals signs",
+			input: "Authorization=Basic dXNlcjpwYXNz==",
+			expected: map[string]string{"Authorization": "Basic dXNlcjpwYXNz=="},
+		},
 	}
 
 	for _, tt := range tests {

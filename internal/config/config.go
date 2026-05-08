@@ -377,6 +377,7 @@ func bindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("database.user", "PAYBRIDGE_DATABASE_USER", "DB_USER")
 	_ = v.BindEnv("database.password", "PAYBRIDGE_DATABASE_PASSWORD", "DB_PASSWORD")
 	_ = v.BindEnv("database.database", "PAYBRIDGE_DATABASE_DATABASE", "DB_NAME")
+	_ = v.BindEnv("database.ssl_mode", "PAYBRIDGE_DATABASE_SSL_MODE")
 
 	// Auth
 	_ = v.BindEnv("auth.jwt_secret", "PAYBRIDGE_AUTH_JWT_SECRET", "JWT_SECRET")
