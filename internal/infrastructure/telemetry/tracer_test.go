@@ -49,3 +49,36 @@ func TestParseOTLPHeaders(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "bare host:port gets http prefix",
+			input:    "jaeger:4318",
+			expected: "http://jaeger:4318",
+		},
+		{
+			name:     "http scheme unchanged",
+			input:    "http://jaeger:4318",
+			expected: "http://jaeger:4318",
+		},
+		{
+			name:     "https scheme unchanged (Grafana Cloud)",
+			input:    "https://tempo-prod-06-prod-us-east-0.grafana.net:443",
+			expected: "https://tempo-prod-06-prod-us-east-0.grafana.net:443",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeEndpoint(tt.input)
+			if got != tt.expected {
+				t.Errorf("normalizeEndpoint(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
