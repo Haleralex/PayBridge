@@ -84,5 +84,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget -q --spider http://localhost:8080/health || exit 1
 
 # Run the application
-ENTRYPOINT ["/app/paybridge"]
-CMD ["-config", "/app/configs", "-config-name", "config"]
+CMD ["/app/paybridge", "-config", "/app/configs", "-config-name", "config"]
