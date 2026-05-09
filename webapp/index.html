@@ -16,7 +16,13 @@
             --tg-theme-secondary-bg-color: #f0f0f0;
         }
 
-        * {
+        html {
+            box-sizing: border-box;
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -28,11 +34,15 @@
             color: var(--tg-theme-text-color);
             min-height: 100vh;
             padding-bottom: 80px;
+            overflow-x: hidden;
+            width: 100%;
         }
 
         .container {
+            width: 100%;
             max-width: 100%;
             padding: 16px;
+            overflow-x: hidden;
         }
 
         /* Header */
