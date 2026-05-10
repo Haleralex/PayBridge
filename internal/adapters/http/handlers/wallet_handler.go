@@ -2,88 +2,32 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
 	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // ============================================
-// Use Case Interfaces
-// ============================================
-
-// CreateWalletUseCase - интерфейс для создания кошелька.
-type CreateWalletUseCase interface {
-	Execute(ctx context.Context, cmd dtos.CreateWalletCommand) (*dtos.WalletDTO, error)
-}
-
-// CreditWalletUseCase - интерфейс для пополнения кошелька.
-type CreditWalletUseCase interface {
-	Execute(ctx context.Context, cmd dtos.CreditWalletCommand) (*dtos.WalletOperationDTO, error)
-}
-
-// DebitWalletUseCase - интерфейс для списания с кошелька.
-type DebitWalletUseCase interface {
-	Execute(ctx context.Context, cmd dtos.DebitWalletCommand) (*dtos.WalletOperationDTO, error)
-}
-
-// TransferFundsUseCase - интерфейс для перевода между кошельками.
-type TransferFundsUseCase interface {
-	Execute(ctx context.Context, cmd dtos.TransferFundsCommand) (*dtos.TransferResultDTO, error)
-}
-
-// ExchangeCurrencyUseCase - интерфейс для обмена валюты.
-type ExchangeCurrencyUseCase interface {
-	Execute(ctx context.Context, cmd dtos.ExchangeCurrencyCommand) (*dtos.ExchangeResultDTO, error)
-}
-
-// GetWalletUseCase - интерфейс для получения кошелька.
-type GetWalletUseCase interface {
-	Execute(ctx context.Context, query dtos.GetWalletQuery) (*dtos.WalletDTO, error)
-}
-
-// ListWalletsUseCase - интерфейс для получения списка кошельков.
-type ListWalletsUseCase interface {
-	Execute(ctx context.Context, query dtos.ListWalletsQuery) (*dtos.WalletListDTO, error)
-}
-
-// ============================================
 // Wallet Handler
 // ============================================
 
 // WalletHandler обрабатывает HTTP запросы для кошельков.
+// Все операции диспатчатся через CQRS Command/Query Bus.
 type WalletHandler struct {
-	createWallet     CreateWalletUseCase
-	creditWallet     CreditWalletUseCase
-	debitWallet      DebitWalletUseCase
-	transferFunds    TransferFundsUseCase
-	exchangeCurrency ExchangeCurrencyUseCase
-	getWallet        GetWalletUseCase
-	listWallets      ListWalletsUseCase
+	commandBus *cqrs.CommandBus
+	queryBus   *cqrs.QueryBus
 }
 
 // NewWalletHandler создаёт новый WalletHandler.
-func NewWalletHandler(
-	createWallet CreateWalletUseCase,
-	creditWallet CreditWalletUseCase,
-	debitWallet DebitWalletUseCase,
-	transferFunds TransferFundsUseCase,
-	exchangeCurrency ExchangeCurrencyUseCase,
-	getWallet GetWalletUseCase,
-	listWallets ListWalletsUseCase,
-) *WalletHandler {
+func NewWalletHandler(commandBus *cqrs.CommandBus, queryBus *cqrs.QueryBus) *WalletHandler {
 	return &WalletHandler{
-		createWallet:     createWallet,
-		creditWallet:     creditWallet,
-		debitWallet:      debitWallet,
-		transferFunds:    transferFunds,
-		exchangeCurrency: exchangeCurrency,
-		getWallet:        getWallet,
-		listWallets:      listWallets,
+		commandBus: commandBus,
+		queryBus:   queryBus,
 	}
 }
 
@@ -160,13 +104,8 @@ func (h *WalletHandler) checkWalletOwnership(c *gin.Context, walletID string) bo
 		return false
 	}
 
-	if h.getWallet == nil {
-		common.InternalErrorResponse(c, "GetWallet use case not available")
-		return false
-	}
-
 	query := dtos.GetWalletQuery{WalletID: walletID}
-	wallet, err := h.getWallet.Execute(c.Request.Context(), query)
+	wallet, err := cqrs.DispatchQuery[dtos.GetWalletQuery, *dtos.WalletDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return false
@@ -212,11 +151,11 @@ func (h *WalletHandler) CreateWallet(c *gin.Context) {
 	}
 
 	cmd := dtos.CreateWalletCommand{
-		UserID:       authUserID.String(), // Always use authenticated user's ID
+		UserID:       authUserID.String(),
 		CurrencyCode: req.CurrencyCode,
 	}
 
-	result, err := h.createWallet.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.CreateWalletCommand, *dtos.WalletDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -258,12 +197,7 @@ func (h *WalletHandler) GetWallet(c *gin.Context) {
 
 	query := dtos.GetWalletQuery{WalletID: params.ID}
 
-	if h.getWallet == nil {
-		common.InternalErrorResponse(c, "GetWallet use case not implemented")
-		return
-	}
-
-	result, err := h.getWallet.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.GetWalletQuery, *dtos.WalletDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -311,12 +245,7 @@ func (h *WalletHandler) ListWallets(c *gin.Context) {
 		query.Status = &filters.Status
 	}
 
-	if h.listWallets == nil {
-		common.InternalErrorResponse(c, "ListWallets use case not implemented")
-		return
-	}
-
-	result, err := h.listWallets.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.ListWalletsQuery, *dtos.WalletListDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -366,7 +295,7 @@ func (h *WalletHandler) CreditWallet(c *gin.Context) {
 		ExternalReference: req.ExternalReference,
 	}
 
-	result, err := h.creditWallet.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.CreditWalletCommand, *dtos.WalletOperationDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -415,12 +344,7 @@ func (h *WalletHandler) DebitWallet(c *gin.Context) {
 		ExternalReference: req.ExternalReference,
 	}
 
-	if h.debitWallet == nil {
-		common.InternalErrorResponse(c, "DebitWallet use case not implemented")
-		return
-	}
-
-	result, err := h.debitWallet.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.DebitWalletCommand, *dtos.WalletOperationDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -469,12 +393,7 @@ func (h *WalletHandler) Transfer(c *gin.Context) {
 		Description:         req.Description,
 	}
 
-	if h.transferFunds == nil {
-		common.InternalErrorResponse(c, "TransferFunds use case not implemented")
-		return
-	}
-
-	result, err := h.transferFunds.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.TransferFundsCommand, *dtos.TransferResultDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -506,12 +425,7 @@ func (h *WalletHandler) ExchangeCurrency(c *gin.Context) {
 		IdempotencyKey:      req.IdempotencyKey,
 	}
 
-	if h.exchangeCurrency == nil {
-		common.InternalErrorResponse(c, "ExchangeCurrency use case not implemented")
-		return
-	}
-
-	result, err := h.exchangeCurrency.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.ExchangeCurrencyCommand, *dtos.ExchangeResultDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -543,15 +457,10 @@ func (h *WalletHandler) GetMyWallets(c *gin.Context) {
 	query := dtos.ListWalletsQuery{
 		UserID: &userIDStr,
 		Offset: 0,
-		Limit:  100, // Максимум кошельков для одного пользователя
+		Limit:  100,
 	}
 
-	if h.listWallets == nil {
-		common.InternalErrorResponse(c, "ListWallets use case not implemented")
-		return
-	}
-
-	result, err := h.listWallets.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.ListWalletsQuery, *dtos.WalletListDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -561,15 +470,6 @@ func (h *WalletHandler) GetMyWallets(c *gin.Context) {
 }
 
 // RegisterRoutes регистрирует маршруты для WalletHandler.
-//
-// Routes:
-// - POST   /wallets              - Create wallet
-// - GET    /wallets              - List wallets
-// - GET    /wallets/me           - Get my wallets (authenticated)
-// - GET    /wallets/:id          - Get wallet by ID
-// - POST   /wallets/:id/credit   - Credit wallet
-// - POST   /wallets/:id/debit    - Debit wallet
-// - POST   /wallets/:id/transfer - Transfer funds
 func (h *WalletHandler) RegisterRoutes(router *gin.RouterGroup) {
 	wallets := router.Group("/wallets")
 	{

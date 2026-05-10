@@ -2,71 +2,31 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // ============================================
-// Use Case Interfaces
-// ============================================
-
-// GetTransactionUseCase - интерфейс для получения транзакции.
-type GetTransactionUseCase interface {
-	Execute(ctx context.Context, query dtos.GetTransactionQuery) (*dtos.TransactionDTO, error)
-}
-
-// ListTransactionsUseCase - интерфейс для получения списка транзакций.
-type ListTransactionsUseCase interface {
-	Execute(ctx context.Context, query dtos.ListTransactionsQuery) (*dtos.TransactionListDTO, error)
-}
-
-// RetryTransactionUseCase - интерфейс для повтора транзакции.
-type RetryTransactionUseCase interface {
-	Execute(ctx context.Context, cmd dtos.RetryTransactionCommand) (*dtos.TransactionDTO, error)
-}
-
-// CancelTransactionUseCase - интерфейс для отмены транзакции.
-type CancelTransactionUseCase interface {
-	Execute(ctx context.Context, cmd dtos.CancelTransactionCommand) (*dtos.TransactionDTO, error)
-}
-
-// GetTransactionByIdempotencyKeyUseCase - интерфейс для поиска транзакции по ключу идемпотентности.
-type GetTransactionByIdempotencyKeyUseCase interface {
-	Execute(ctx context.Context, query dtos.GetTransactionByIdempotencyKeyQuery) (*dtos.TransactionDTO, error)
-}
-
-// ============================================
 // Transaction Handler
 // ============================================
 
 // TransactionHandler обрабатывает HTTP запросы для транзакций.
+// Все операции диспатчатся через CQRS Command/Query Bus.
 type TransactionHandler struct {
-	getTransaction              GetTransactionUseCase
-	listTransactions            ListTransactionsUseCase
-	retryTransaction            RetryTransactionUseCase
-	cancelTransaction           CancelTransactionUseCase
-	getByIdempotencyKey         GetTransactionByIdempotencyKeyUseCase
+	commandBus *cqrs.CommandBus
+	queryBus   *cqrs.QueryBus
 }
 
 // NewTransactionHandler создаёт новый TransactionHandler.
-func NewTransactionHandler(
-	getTransaction GetTransactionUseCase,
-	listTransactions ListTransactionsUseCase,
-	retryTransaction RetryTransactionUseCase,
-	cancelTransaction CancelTransactionUseCase,
-	getByIdempotencyKey GetTransactionByIdempotencyKeyUseCase,
-) *TransactionHandler {
+func NewTransactionHandler(commandBus *cqrs.CommandBus, queryBus *cqrs.QueryBus) *TransactionHandler {
 	return &TransactionHandler{
-		getTransaction:              getTransaction,
-		listTransactions:            listTransactions,
-		retryTransaction:            retryTransaction,
-		cancelTransaction:           cancelTransaction,
-		getByIdempotencyKey:         getByIdempotencyKey,
+		commandBus: commandBus,
+		queryBus:   queryBus,
 	}
 }
 
@@ -126,12 +86,7 @@ func (h *TransactionHandler) GetTransaction(c *gin.Context) {
 
 	query := dtos.GetTransactionQuery{TransactionID: params.ID}
 
-	if h.getTransaction == nil {
-		common.InternalErrorResponse(c, "GetTransaction use case not implemented")
-		return
-	}
-
-	result, err := h.getTransaction.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.GetTransactionQuery, *dtos.TransactionDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -183,12 +138,7 @@ func (h *TransactionHandler) ListTransactions(c *gin.Context) {
 		query.Status = &filters.Status
 	}
 
-	if h.listTransactions == nil {
-		common.InternalErrorResponse(c, "ListTransactions use case not implemented")
-		return
-	}
-
-	result, err := h.listTransactions.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.ListTransactionsQuery, *dtos.TransactionListDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -220,16 +170,11 @@ func (h *TransactionHandler) GetTransactionByIdempotencyKey(c *gin.Context) {
 		return
 	}
 
-	if h.getByIdempotencyKey == nil {
-		common.InternalErrorResponse(c, "GetTransactionByIdempotencyKey use case not implemented")
-		return
-	}
-
 	query := dtos.GetTransactionByIdempotencyKeyQuery{
 		IdempotencyKey: key,
 	}
 
-	result, err := h.getByIdempotencyKey.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.GetTransactionByIdempotencyKeyQuery, *dtos.TransactionDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -260,12 +205,7 @@ func (h *TransactionHandler) RetryTransaction(c *gin.Context) {
 
 	cmd := dtos.RetryTransactionCommand{TransactionID: params.ID}
 
-	if h.retryTransaction == nil {
-		common.InternalErrorResponse(c, "RetryTransaction use case not implemented")
-		return
-	}
-
-	result, err := h.retryTransaction.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.RetryTransactionCommand, *dtos.TransactionDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -305,12 +245,7 @@ func (h *TransactionHandler) CancelTransaction(c *gin.Context) {
 		Reason:        req.Reason,
 	}
 
-	if h.cancelTransaction == nil {
-		common.InternalErrorResponse(c, "CancelTransaction use case not implemented")
-		return
-	}
-
-	result, err := h.cancelTransaction.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.CancelTransactionCommand, *dtos.TransactionDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -371,12 +306,7 @@ func (h *TransactionHandler) GetWalletTransactions(c *gin.Context) {
 		query.Status = &filters.Status
 	}
 
-	if h.listTransactions == nil {
-		common.InternalErrorResponse(c, "ListTransactions use case not implemented")
-		return
-	}
-
-	result, err := h.listTransactions.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.ListTransactionsQuery, *dtos.TransactionListDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -387,13 +317,6 @@ func (h *TransactionHandler) GetWalletTransactions(c *gin.Context) {
 }
 
 // RegisterRoutes регистрирует маршруты для TransactionHandler.
-//
-// Routes:
-// - GET    /transactions               - List transactions
-// - GET    /transactions/:id           - Get transaction by ID
-// - GET    /transactions/by-key/:key   - Get transaction by idempotency key
-// - POST   /transactions/:id/retry     - Retry failed transaction
-// - POST   /transactions/:id/cancel    - Cancel pending transaction
 func (h *TransactionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	transactions := router.Group("/transactions")
 	{
@@ -406,8 +329,6 @@ func (h *TransactionHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 // RegisterWalletTransactionsRoute регистрирует маршрут для транзакций кошелька.
-//
-// Route: GET /wallets/:id/transactions
 func (h *TransactionHandler) RegisterWalletTransactionsRoute(walletRoutes *gin.RouterGroup) {
 	walletRoutes.GET("/:id/transactions", h.GetWalletTransactions)
 }

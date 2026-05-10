@@ -489,7 +489,7 @@ func TestTransferBetweenWalletsUseCase_Integration_Success(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 
 	// ← ПРАВИЛЬНО: используем TransferBetweenWalletsUseCase, а не CreateTransactionUseCase!
-	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	// 2. Подготовка тестовых данных: СНАЧАЛА user, ПОТОМ wallet!
 	sourceUser := createTestUser(t, ctx, "sourceUser@test.com", "Money source user")
@@ -565,7 +565,7 @@ func TestTransferBetweenWalletsUseCase_Integration_CurrencyMismatch(t *testing.T
 	uow := postgres.NewUnitOfWork(testPool)
 	eventPublisher := &mockEventPublisher{}
 
-	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	// 2. Подготовка тестовых данных: разные валюты!
 	sourceUser := createTestUser(t, ctx, "currency-source@test.com", "Currency Source User")

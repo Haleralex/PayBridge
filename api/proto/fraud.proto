@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package fraud.v1;
+
+option go_package = "github.com/Haleralex/wallethub/internal/adapters/grpc/pb";
+
+service FraudDetectionService {
+  // CheckTransaction evaluates a financial transaction for fraud risk.
+  rpc CheckTransaction(CheckTransactionRequest) returns (CheckTransactionResponse);
+}
+
+message CheckTransactionRequest {
+  string user_id = 1;
+  string source_wallet_id = 2;
+  string destination_wallet_id = 3;
+  string amount = 4;
+  string currency = 5;
+  string transaction_type = 6; // TRANSFER, EXCHANGE, DEPOSIT, WITHDRAWAL
+}
+
+message CheckTransactionResponse {
+  bool approved = 1;
+  double risk_score = 2; // 0.0 (safe) to 1.0 (fraud)
+  string reason = 3;     // human-readable reason if rejected
+}

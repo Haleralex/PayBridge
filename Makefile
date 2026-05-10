@@ -268,6 +268,39 @@ deps: ## Download dependencies
 	@echo "Dependencies ready"
 
 # ============================================
+# Protocol Buffers
+# ============================================
+
+PROTO_PATH := ./api/proto
+PROTO_OUT := ./internal/adapters/grpc/pb
+
+proto-gen: ## Generate protobuf Go code
+	@echo "Generating protobuf code..."
+	@mkdir -p $(PROTO_OUT)
+	protoc --go_out=$(PROTO_OUT) --go_opt=paths=source_relative \
+	       --go-grpc_out=$(PROTO_OUT) --go-grpc_opt=paths=source_relative \
+	       -I=$(PROTO_PATH) $(PROTO_PATH)/*.proto
+	@echo "Protobuf generation complete"
+
+proto-clean: ## Clean generated protobuf files
+	@echo "Cleaning protobuf files..."
+	rm -rf $(PROTO_OUT)/*.pb.go
+	@echo "Clean complete"
+
+# ============================================
+# Fraud Detection Service
+# ============================================
+
+fraud-build: ## Build fraud detector service
+	@echo "Building fraud detector..."
+	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/fraud-detector ./cmd/fraud-detector
+	@echo "Build complete"
+
+fraud-run: ## Run fraud detector service locally
+	@echo "Starting fraud detector..."
+	$(GO) run ./cmd/fraud-detector -config $(CONFIG_PATH)
+
+# ============================================
 # CI/CD
 # ============================================
 

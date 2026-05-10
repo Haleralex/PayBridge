@@ -2,79 +2,31 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // ============================================
-// Use Case Interfaces
-// ============================================
-
-// CreateUserUseCase - интерфейс для создания пользователя.
-type CreateUserUseCase interface {
-	Execute(ctx context.Context, cmd dtos.CreateUserCommand) (*dtos.UserCreatedDTO, error)
-}
-
-// ApproveKYCUseCase - интерфейс для одобрения KYC.
-type ApproveKYCUseCase interface {
-	Execute(ctx context.Context, cmd dtos.ApproveKYCCommand) (*dtos.UserDTO, error)
-}
-
-// GetUserUseCase - интерфейс для получения пользователя (query).
-type GetUserUseCase interface {
-	Execute(ctx context.Context, query dtos.GetUserQuery) (*dtos.UserDTO, error)
-}
-
-// ListUsersUseCase - интерфейс для получения списка пользователей.
-type ListUsersUseCase interface {
-	Execute(ctx context.Context, query dtos.ListUsersQuery) (*dtos.UserListDTO, error)
-}
-
-// StartKYCUseCase - интерфейс для запуска KYC верификации.
-type StartKYCUseCase interface {
-	Execute(ctx context.Context, cmd dtos.StartKYCVerificationCommand) (*dtos.UserDTO, error)
-}
-
-// ============================================
 // User Handler
 // ============================================
 
 // UserHandler обрабатывает HTTP запросы для пользователей.
-//
-// Pattern: Adapter (Hexagonal Architecture)
-// - Преобразует HTTP запросы в Use Case вызовы
-// - Преобразует результаты в HTTP ответы
+// Все операции диспатчатся через CQRS Command/Query Bus.
 type UserHandler struct {
-	createUser CreateUserUseCase
-	approveKYC ApproveKYCUseCase
-	getUser    GetUserUseCase
-	listUsers  ListUsersUseCase
-	startKYC   StartKYCUseCase
+	commandBus *cqrs.CommandBus
+	queryBus   *cqrs.QueryBus
 }
 
 // NewUserHandler создаёт новый UserHandler.
-//
-// Dependency Injection:
-// - Все зависимости передаются через конструктор
-// - Handler не создаёт зависимости сам
-func NewUserHandler(
-	createUser CreateUserUseCase,
-	approveKYC ApproveKYCUseCase,
-	getUser GetUserUseCase,
-	listUsers ListUsersUseCase,
-	startKYC StartKYCUseCase,
-) *UserHandler {
+func NewUserHandler(commandBus *cqrs.CommandBus, queryBus *cqrs.QueryBus) *UserHandler {
 	return &UserHandler{
-		createUser: createUser,
-		approveKYC: approveKYC,
-		getUser:    getUser,
-		listUsers:  listUsers,
-		startKYC:   startKYC,
+		commandBus: commandBus,
+		queryBus:   queryBus,
 	}
 }
 
@@ -126,20 +78,17 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	// Преобразуем HTTP request в Application Command
 	cmd := dtos.CreateUserCommand{
 		Email:    req.Email,
 		FullName: req.FullName,
 	}
 
-	// Вызываем Use Case
-	result, err := h.createUser.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.CreateUserCommand, *dtos.UserCreatedDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
 	}
 
-	// Возвращаем успешный ответ
 	common.Success(c, http.StatusCreated, result)
 }
 
@@ -162,7 +111,6 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	// Проверяем, что это валидный UUID
 	if _, err := uuid.Parse(params.ID); err != nil {
 		common.ValidationErrorResponse(c, []common.FieldError{
 			{Field: "id", Message: "Invalid UUID format", Code: "uuid"},
@@ -170,16 +118,9 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	// Вызываем Use Case
 	query := dtos.GetUserQuery{UserID: params.ID}
 
-	if h.getUser == nil {
-		// Если use case не реализован - временная заглушка
-		common.InternalErrorResponse(c, "GetUser use case not implemented")
-		return
-	}
-
-	result, err := h.getUser.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.GetUserQuery, *dtos.UserDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -209,18 +150,12 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		Limit:  pagination.PerPage,
 	}
 
-	if h.listUsers == nil {
-		common.InternalErrorResponse(c, "ListUsers use case not implemented")
-		return
-	}
-
-	result, err := h.listUsers.Execute(c.Request.Context(), query)
+	result, err := cqrs.DispatchQuery[dtos.ListUsersQuery, *dtos.UserListDTO](h.queryBus, c.Request.Context(), query)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
 	}
 
-	// Добавляем мета-информацию о пагинации
 	meta := BuildMeta(pagination, result.TotalCount)
 	common.SuccessWithMeta(c, http.StatusOK, result, meta)
 }
@@ -257,12 +192,7 @@ func (h *UserHandler) ApproveKYC(c *gin.Context) {
 		Reason:   req.Reason,
 	}
 
-	if h.approveKYC == nil {
-		common.InternalErrorResponse(c, "ApproveKYC use case not implemented")
-		return
-	}
-
-	result, err := h.approveKYC.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.ApproveKYCCommand, *dtos.UserDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return
@@ -291,16 +221,11 @@ func (h *UserHandler) StartKYC(c *gin.Context) {
 		return
 	}
 
-	if h.startKYC == nil {
-		common.InternalErrorResponse(c, "StartKYC use case not implemented")
-		return
-	}
-
 	cmd := dtos.StartKYCVerificationCommand{
 		UserID: params.ID,
 	}
 
-	result, err := h.startKYC.Execute(c.Request.Context(), cmd)
+	result, err := cqrs.DispatchCommand[dtos.StartKYCVerificationCommand, *dtos.UserDTO](h.commandBus, c.Request.Context(), cmd)
 	if err != nil {
 		common.HandleDomainError(c, err)
 		return

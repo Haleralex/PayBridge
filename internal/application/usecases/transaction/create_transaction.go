@@ -4,6 +4,7 @@ package transaction
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/Haleralex/wallethub/internal/application/ports"
@@ -34,6 +35,9 @@ type CreateTransactionUseCase struct {
 	transactionRepo ports.TransactionRepository
 	eventPublisher  ports.EventPublisher
 	uow             ports.UnitOfWork
+	// distributedLock prevents idempotency race conditions across multiple instances.
+	// May be nil — in that case idempotency is still checked via DB, but without a lock.
+	distributedLock ports.DistributedLock
 }
 
 // NewCreateTransactionUseCase создаёт новый use case.
@@ -42,18 +46,32 @@ func NewCreateTransactionUseCase(
 	transactionRepo ports.TransactionRepository,
 	eventPublisher ports.EventPublisher,
 	uow ports.UnitOfWork,
+	lock ports.DistributedLock,
 ) *CreateTransactionUseCase {
 	return &CreateTransactionUseCase{
 		walletRepo:      walletRepo,
 		transactionRepo: transactionRepo,
 		eventPublisher:  eventPublisher,
 		uow:             uow,
+		distributedLock: lock,
 	}
 }
 
 // Execute выполняет создание транзакции.
 func (uc *CreateTransactionUseCase) Execute(ctx context.Context, cmd dtos.CreateTransactionCommand) (*dtos.TransactionDTO, error) {
 	var result *dtos.TransactionDTO
+
+	// 0. Acquire distributed lock for idempotency key to prevent race conditions.
+	// Two concurrent requests with the same key could both see "not found" without this lock.
+	if cmd.IdempotencyKey != "" && uc.distributedLock != nil {
+		lockToken, err := uc.distributedLock.Acquire(ctx, "idempotency:"+cmd.IdempotencyKey, 30*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("failed to acquire idempotency lock: %w", err)
+		}
+		defer func() {
+			_ = uc.distributedLock.Release(ctx, "idempotency:"+cmd.IdempotencyKey, lockToken)
+		}()
+	}
 
 	err := uc.uow.Execute(ctx, func(txCtx context.Context) error {
 		// 1. Проверка idempotency

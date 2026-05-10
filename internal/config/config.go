@@ -36,6 +36,8 @@ type Config struct {
 	Notifier NotifierConfig `mapstructure:"notifier"`
 	Exchange  ExchangeConfig  `mapstructure:"exchange"`
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
+	Fraud     FraudConfig     `mapstructure:"fraud"`
+	Redis     RedisConfig     `mapstructure:"redis"`
 }
 
 // ============================================
@@ -202,6 +204,17 @@ type TelemetryConfig struct {
 }
 
 // ============================================
+// Fraud Detection Configuration
+// ============================================
+
+// FraudConfig - конфигурация сервиса детекции фрода.
+type FraudConfig struct {
+	Enabled      bool          `mapstructure:"enabled"`
+	GRPCEndpoint string        `mapstructure:"grpc_endpoint"`
+	Timeout      time.Duration `mapstructure:"timeout"`
+}
+
+// ============================================
 // Exchange Configuration
 // ============================================
 
@@ -211,6 +224,18 @@ type ExchangeConfig struct {
 	APIURL        string        `mapstructure:"api_url"`
 	CacheTTL      time.Duration `mapstructure:"cache_ttl"`
 	SpreadPercent float64       `mapstructure:"spread_percent"`
+}
+
+// ============================================
+// Redis Configuration
+// ============================================
+
+// RedisConfig - конфигурация Redis.
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
 }
 
 // ============================================
@@ -355,6 +380,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("notifier.batch_size", 50)
 	v.SetDefault("notifier.max_retries", 5)
 
+	// Fraud detection defaults
+	v.SetDefault("fraud.enabled", true)
+	v.SetDefault("fraud.grpc_endpoint", "fraud-detector:50051")
+	v.SetDefault("fraud.timeout", "2s")
+
 	// Telemetry defaults
 	v.SetDefault("telemetry.enabled", true)
 	v.SetDefault("telemetry.otlp_endpoint", "http://jaeger:4318")
@@ -364,6 +394,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("exchange.api_key", "")
 	v.SetDefault("exchange.cache_ttl", "4h")
 	v.SetDefault("exchange.spread_percent", 0.5)
+
+	// Redis defaults
+	v.SetDefault("redis.host", "localhost")
+	v.SetDefault("redis.port", 6379)
+	v.SetDefault("redis.password", "")
+	v.SetDefault("redis.db", 0)
 
 	// Log defaults
 	v.SetDefault("log.level", "info")
@@ -395,6 +431,10 @@ func bindEnvVars(v *viper.Viper) {
 	// NATS
 	_ = v.BindEnv("nats.url", "PAYBRIDGE_NATS_URL", "NATS_URL")
 
+	// Fraud Detection
+	_ = v.BindEnv("fraud.enabled", "PAYBRIDGE_FRAUD_ENABLED")
+	_ = v.BindEnv("fraud.grpc_endpoint", "PAYBRIDGE_FRAUD_GRPC_ENDPOINT")
+
 	// Telemetry
 	_ = v.BindEnv("telemetry.enabled", "PAYBRIDGE_TELEMETRY_ENABLED")
 	_ = v.BindEnv("telemetry.otlp_endpoint", "PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT")
@@ -402,6 +442,11 @@ func bindEnvVars(v *viper.Viper) {
 	// Exchange
 	_ = v.BindEnv("exchange.api_key", "PAYBRIDGE_EXCHANGE_API_KEY")
 	_ = v.BindEnv("exchange.spread_percent", "PAYBRIDGE_EXCHANGE_SPREAD_PERCENT")
+
+	// Redis
+	_ = v.BindEnv("redis.host", "PAYBRIDGE_REDIS_HOST", "REDIS_HOST")
+	_ = v.BindEnv("redis.port", "PAYBRIDGE_REDIS_PORT", "REDIS_PORT")
+	_ = v.BindEnv("redis.password", "PAYBRIDGE_REDIS_PASSWORD", "REDIS_PASSWORD")
 }
 
 // ============================================

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	domerrors "github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/gin-gonic/gin"
@@ -17,7 +18,7 @@ import (
 )
 
 // ============================================
-// Mock Use Cases
+// Mock Use Cases (implement cqrs.UseCaseExecutor)
 // ============================================
 
 type mockGetTransactionUseCase struct {
@@ -68,6 +69,33 @@ func (m *mockCancelTransactionUseCase) Execute(ctx context.Context, cmd dtos.Can
 // Helper Functions
 // ============================================
 
+// buildTransactionBuses creates CommandBus and QueryBus with the given mock use cases registered.
+// Pass nil for any use case to leave it unregistered.
+func buildTransactionBuses(
+	getTx *mockGetTransactionUseCase,
+	listTx *mockListTransactionsUseCase,
+	retryTx *mockRetryTransactionUseCase,
+	cancelTx *mockCancelTransactionUseCase,
+) (*cqrs.CommandBus, *cqrs.QueryBus) {
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
+
+	if getTx != nil {
+		cqrs.RegisterQueryHandler[dtos.GetTransactionQuery, *dtos.TransactionDTO](qBus, getTx)
+	}
+	if listTx != nil {
+		cqrs.RegisterQueryHandler[dtos.ListTransactionsQuery, *dtos.TransactionListDTO](qBus, listTx)
+	}
+	if retryTx != nil {
+		cqrs.RegisterCommandHandler[dtos.RetryTransactionCommand, *dtos.TransactionDTO](cmdBus, retryTx)
+	}
+	if cancelTx != nil {
+		cqrs.RegisterCommandHandler[dtos.CancelTransactionCommand, *dtos.TransactionDTO](cmdBus, cancelTx)
+	}
+
+	return cmdBus, qBus
+}
+
 func setupTransactionTestRouter(handler *TransactionHandler) *gin.Engine {
 	router := gin.New()
 	handler.RegisterRoutes(router.Group("/api/v1"))
@@ -79,7 +107,9 @@ func setupTransactionTestRouter(handler *TransactionHandler) *gin.Engine {
 // ============================================
 
 func TestNewTransactionHandler(t *testing.T) {
-	handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
+	handler := NewTransactionHandler(cmdBus, qBus)
 	assert.NotNil(t, handler)
 }
 
@@ -106,7 +136,8 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(mockUseCase, nil, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(mockUseCase, nil, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/"+txID, nil)
@@ -122,7 +153,8 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewTransactionHandler(&mockGetTransactionUseCase{}, nil, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(&mockGetTransactionUseCase{}, nil, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/not-a-uuid", nil)
@@ -140,7 +172,8 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(mockUseCase, nil, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(mockUseCase, nil, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/"+uuid.New().String(), nil)
@@ -151,8 +184,11 @@ func TestTransactionHandler_GetTransaction(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		// Empty buses — no handlers registered → "no query handler registered" error → 500
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/"+uuid.New().String(), nil)
@@ -182,7 +218,8 @@ func TestTransactionHandler_ListTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions", nil)
@@ -207,7 +244,8 @@ func TestTransactionHandler_ListTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		walletID := uuid.New().String()
@@ -219,8 +257,10 @@ func TestTransactionHandler_ListTransactions(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions", nil)
@@ -249,7 +289,8 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, mockUseCase, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, nil, mockUseCase, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/"+txID+"/retry", nil)
@@ -261,7 +302,8 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, &mockRetryTransactionUseCase{}, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, nil, &mockRetryTransactionUseCase{}, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/not-a-uuid/retry", nil)
@@ -279,7 +321,8 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, mockUseCase, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, nil, mockUseCase, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/"+uuid.New().String()+"/retry", nil)
@@ -290,8 +333,10 @@ func TestTransactionHandler_RetryTransaction(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/"+uuid.New().String()+"/retry", nil)
@@ -320,7 +365,8 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, nil, nil, mockUseCase)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(CancelTransactionRequest{
@@ -336,7 +382,8 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 	})
 
 	t.Run("MissingReason", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, &mockCancelTransactionUseCase{}, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, nil, nil, &mockCancelTransactionUseCase{})
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(map[string]interface{}{})
@@ -356,7 +403,8 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, nil, nil, mockUseCase)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(CancelTransactionRequest{Reason: "Test"})
@@ -369,8 +417,10 @@ func TestTransactionHandler_CancelTransaction(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		body, _ := json.Marshal(CancelTransactionRequest{Reason: "Test"})
@@ -401,7 +451,8 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -416,7 +467,8 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 	})
 
 	t.Run("InvalidWalletID", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, &mockListTransactionsUseCase{}, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, &mockListTransactionsUseCase{}, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -441,7 +493,8 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 			},
 		}
 
-		handler := NewTransactionHandler(nil, mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildTransactionBuses(nil, mockUseCase, nil, nil)
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -455,8 +508,10 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := gin.New()
 
 		walletGroup := router.Group("/api/v1/wallets")
@@ -474,8 +529,10 @@ func TestTransactionHandler_GetWalletTransactions(t *testing.T) {
 func TestTransactionHandler_GetTransactionByIdempotencyKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	t.Run("NotImplemented", func(t *testing.T) {
-		handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewTransactionHandler(cmdBus, qBus)
 		router := setupTransactionTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/by-key/some-key-123", nil)
@@ -488,7 +545,9 @@ func TestTransactionHandler_GetTransactionByIdempotencyKey(t *testing.T) {
 }
 
 func TestTransactionHandler_RegisterRoutes(t *testing.T) {
-	handler := NewTransactionHandler(nil, nil, nil, nil, nil)
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
+	handler := NewTransactionHandler(cmdBus, qBus)
 	router := gin.New()
 	handler.RegisterRoutes(router.Group("/api/v1"))
 

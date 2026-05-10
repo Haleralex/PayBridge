@@ -36,6 +36,7 @@ type TransferBetweenWalletsUseCase struct {
 	transactionRepo ports.TransactionRepository
 	eventPublisher  ports.EventPublisher
 	uow             ports.UnitOfWork
+	fraudDetector   ports.FraudDetector
 }
 
 // NewTransferBetweenWalletsUseCase создаёт новый use case.
@@ -44,12 +45,14 @@ func NewTransferBetweenWalletsUseCase(
 	transactionRepo ports.TransactionRepository,
 	eventPublisher ports.EventPublisher,
 	uow ports.UnitOfWork,
+	fraudDetector ports.FraudDetector,
 ) *TransferBetweenWalletsUseCase {
 	return &TransferBetweenWalletsUseCase{
 		walletRepo:      walletRepo,
 		transactionRepo: transactionRepo,
 		eventPublisher:  eventPublisher,
 		uow:             uow,
+		fraudDetector:   fraudDetector,
 	}
 }
 
@@ -147,7 +150,29 @@ func (uc *TransferBetweenWalletsUseCase) Execute(ctx context.Context, cmd dtos.T
 			}
 		}
 
-		// 6. Создаём транзакцию TRANSFER
+		// 6. Fraud check
+		if uc.fraudDetector != nil {
+			fraudResult, err := uc.fraudDetector.Check(txCtx, &ports.FraudCheckRequest{
+				UserID:              sourceWallet.UserID().String(),
+				SourceWalletID:      sourceWalletID.String(),
+				DestinationWalletID: destinationWalletID.String(),
+				Amount:              cmd.Amount,
+				Currency:            sourceWallet.Currency().Code(),
+				TransactionType:     "TRANSFER",
+			})
+			if err != nil {
+				return fmt.Errorf("fraud check failed: %w", err)
+			}
+			if !fraudResult.Approved {
+				return errors.NewBusinessRuleViolation(
+					"FraudDetected",
+					fmt.Sprintf("transaction blocked: %s (risk score: %.2f)", fraudResult.Reason, fraudResult.RiskScore),
+					nil,
+				)
+			}
+		}
+
+		// 7. Создаём транзакцию TRANSFER
 		transaction, err := entities.NewTransaction(
 			sourceWalletID,
 			cmd.IdempotencyKey,

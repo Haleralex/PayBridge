@@ -30,6 +30,7 @@ type TelegramAuthHandler struct {
 	jwtSecret   string
 	jwtIssuer   string
 	tokenExpiry time.Duration
+	blacklist   ports.TokenBlacklist // nil = blacklist disabled
 }
 
 // TelegramAuthConfig holds configuration for TelegramAuthHandler.
@@ -40,6 +41,7 @@ type TelegramAuthConfig struct {
 	JWTSecret   string
 	JWTIssuer   string
 	TokenExpiry time.Duration
+	Blacklist   ports.TokenBlacklist // optional
 }
 
 // NewTelegramAuthHandler creates a new TelegramAuthHandler.
@@ -55,6 +57,7 @@ func NewTelegramAuthHandler(cfg TelegramAuthConfig) *TelegramAuthHandler {
 		jwtSecret:   cfg.JWTSecret,
 		jwtIssuer:   cfg.JWTIssuer,
 		tokenExpiry: expiry,
+		blacklist:   cfg.Blacklist,
 	}
 }
 
@@ -251,4 +254,40 @@ func (h *TelegramAuthHandler) validateInitData(initData string) (*TelegramWebApp
 	}
 
 	return &tgUser, nil
+}
+
+// Logout handles POST /api/v1/auth/logout
+// Revokes the current JWT token by adding its JTI to the blacklist.
+// Requires valid auth token (Auth middleware must run before this handler).
+func (h *TelegramAuthHandler) Logout(c *gin.Context) {
+	if h.blacklist == nil {
+		// Blacklist not configured — logout is a no-op (token will expire naturally)
+		common.Success(c, http.StatusOK, gin.H{"message": "logged out"})
+		return
+	}
+
+	jti := middleware.GetAuthJTI(c)
+	if jti == "" {
+		// Token has no JTI (issued before Redis was added) — nothing to revoke
+		common.Success(c, http.StatusOK, gin.H{"message": "logged out"})
+		return
+	}
+
+	exp := middleware.GetAuthExp(c)
+	ttl := time.Until(exp)
+	if ttl <= 0 {
+		// Token already expired — no need to blacklist
+		common.Success(c, http.StatusOK, gin.H{"message": "logged out"})
+		return
+	}
+
+	if err := h.blacklist.Add(c.Request.Context(), jti, ttl); err != nil {
+		common.Error(c, http.StatusInternalServerError, &common.APIError{
+			Code:    "LOGOUT_FAILED",
+			Message: "Failed to revoke token",
+		})
+		return
+	}
+
+	common.Success(c, http.StatusOK, gin.H{"message": "logged out"})
 }

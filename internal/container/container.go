@@ -20,15 +20,20 @@ import (
 
 	"github.com/Haleralex/wallethub/internal/adapters/http"
 	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
+	grpcadapter "github.com/Haleralex/wallethub/internal/adapters/grpc"
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
+	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/Haleralex/wallethub/internal/application/ports"
 	"github.com/Haleralex/wallethub/internal/application/usecases/transaction"
 	"github.com/Haleralex/wallethub/internal/application/usecases/user"
 	"github.com/Haleralex/wallethub/internal/application/usecases/wallet"
 	"github.com/Haleralex/wallethub/internal/config"
+	"github.com/Haleralex/wallethub/internal/infrastructure/cache"
 	"github.com/Haleralex/wallethub/internal/infrastructure/exchange"
 	"github.com/Haleralex/wallethub/internal/infrastructure/persistence/postgres"
 	"github.com/Haleralex/wallethub/internal/infrastructure/telemetry"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -44,6 +49,11 @@ type Container struct {
 	// Infrastructure
 	pool           *pgxpool.Pool
 	tracerProvider *sdktrace.TracerProvider
+	redisClient    *redis.Client
+
+	// Cache / Distributed primitives
+	tokenBlacklist  ports.TokenBlacklist
+	distributedLock ports.DistributedLock
 
 	// Repositories
 	userRepo        ports.UserRepository
@@ -56,6 +66,13 @@ type Container struct {
 
 	// Event Publisher
 	eventPublisher ports.EventPublisher
+
+	// Fraud Detector
+	fraudDetector ports.FraudDetector
+
+	// CQRS Buses
+	commandBus *cqrs.CommandBus
+	queryBus   *cqrs.QueryBus
 
 	// Use Cases
 	createUserUC             *user.CreateUserUseCase
@@ -109,15 +126,28 @@ func (c *Container) Initialize(ctx context.Context) error {
 	}
 	c.logger.Info("Database connected")
 
+	// 1b. Redis (optional — warn and continue if unavailable)
+	if err := c.initRedis(); err != nil {
+		c.logger.Warn("Redis unavailable, running without distributed cache",
+			slog.String("error", err.Error()))
+	}
+
 	// 2. Repositories
 	c.initRepositories()
 	c.logger.Info("Repositories initialized")
 
-	// 3. Use Cases
+	// 3. Fraud Detector
+	c.initFraudDetector()
+
+	// 4. Use Cases
 	c.initUseCases()
 	c.logger.Info("Use cases initialized")
 
-	// 4. HTTP Server
+	// 5. CQRS Buses
+	c.initCQRS()
+	c.logger.Info("CQRS buses initialized")
+
+	// 6. HTTP Server
 	c.initHTTPServer()
 	c.logger.Info("HTTP server initialized")
 
@@ -142,6 +172,90 @@ func (c *Container) initTracing(ctx context.Context) error {
 		slog.String("endpoint", c.config.Telemetry.OTLPEndpoint),
 	)
 	return nil
+}
+
+// initFraudDetector инициализирует детектор фрода.
+// В development/test используем NoOp (всегда разрешает).
+// В production — gRPC клиент к fraud-detector сервису.
+func (c *Container) initFraudDetector() {
+	if !c.config.Fraud.Enabled {
+		c.logger.Info("Fraud detection disabled, using no-op detector")
+		c.fraudDetector = grpcadapter.NewNoOpFraudDetector()
+		return
+	}
+
+	client, err := grpcadapter.NewFraudClient(
+		c.config.Fraud.GRPCEndpoint,
+		c.config.Fraud.Timeout,
+		c.logger,
+	)
+	if err != nil {
+		c.logger.Warn("Failed to connect to fraud detector, using no-op fallback",
+			slog.String("endpoint", c.config.Fraud.GRPCEndpoint),
+			slog.String("error", err.Error()),
+		)
+		c.fraudDetector = grpcadapter.NewNoOpFraudDetector()
+		return
+	}
+
+	c.fraudDetector = client
+	c.logger.Info("Fraud detector initialized",
+		slog.String("endpoint", c.config.Fraud.GRPCEndpoint),
+	)
+}
+
+// initRedis инициализирует Redis клиент и зависимые компоненты.
+// Не возвращает fatal-ошибку — приложение продолжит работу без Redis.
+func (c *Container) initRedis() error {
+	rdb, err := cache.NewRedisClient(c.config.Redis)
+	if err != nil {
+		return err
+	}
+	c.redisClient = rdb
+	c.tokenBlacklist = cache.NewRedisTokenBlacklist(rdb)
+	c.distributedLock = cache.NewRedisDistributedLock(rdb)
+	c.logger.Info("Redis connected",
+		slog.String("addr", fmt.Sprintf("%s:%d", c.config.Redis.Host, c.config.Redis.Port)),
+	)
+	return nil
+}
+
+// initCQRS инициализирует Command Bus и Query Bus с middleware pipeline.
+func (c *Container) initCQRS() {
+	// Command Bus — middleware: Recovery → Tracing → Logging
+	c.commandBus = cqrs.NewCommandBus(
+		cqrs.RecoveryMiddleware(c.logger),
+		cqrs.TracingMiddleware(),
+		cqrs.LoggingMiddleware(c.logger),
+	)
+
+	// Query Bus — middleware: Recovery → Tracing → Logging
+	c.queryBus = cqrs.NewQueryBus(
+		cqrs.RecoveryMiddleware(c.logger),
+		cqrs.TracingMiddleware(),
+		cqrs.LoggingMiddleware(c.logger),
+	)
+
+	// Register Command Handlers
+	cqrs.RegisterCommandHandler[dtos.CreateUserCommand, *dtos.UserCreatedDTO](c.commandBus, c.createUserUC)
+	cqrs.RegisterCommandHandler[dtos.ApproveKYCCommand, *dtos.UserDTO](c.commandBus, c.approveKYCUC)
+	cqrs.RegisterCommandHandler[dtos.StartKYCVerificationCommand, *dtos.UserDTO](c.commandBus, c.startKYCUC)
+	cqrs.RegisterCommandHandler[dtos.CreateWalletCommand, *dtos.WalletDTO](c.commandBus, c.createWalletUC)
+	cqrs.RegisterCommandHandler[dtos.CreditWalletCommand, *dtos.WalletOperationDTO](c.commandBus, c.creditWalletUC)
+	cqrs.RegisterCommandHandler[dtos.DebitWalletCommand, *dtos.WalletOperationDTO](c.commandBus, c.debitWalletUC)
+	cqrs.RegisterCommandHandler[dtos.TransferFundsCommand, *dtos.TransferResultDTO](c.commandBus, c.transferBetweenWalletsUC)
+	cqrs.RegisterCommandHandler[dtos.ExchangeCurrencyCommand, *dtos.ExchangeResultDTO](c.commandBus, c.exchangeCurrencyUC)
+	cqrs.RegisterCommandHandler[dtos.RetryTransactionCommand, *dtos.TransactionDTO](c.commandBus, c.retryTransactionUC)
+	cqrs.RegisterCommandHandler[dtos.CancelTransactionCommand, *dtos.TransactionDTO](c.commandBus, c.cancelTransactionUC)
+
+	// Register Query Handlers
+	cqrs.RegisterQueryHandler[dtos.GetUserQuery, *dtos.UserDTO](c.queryBus, c.getUserUC)
+	cqrs.RegisterQueryHandler[dtos.ListUsersQuery, *dtos.UserListDTO](c.queryBus, c.listUsersUC)
+	cqrs.RegisterQueryHandler[dtos.GetWalletQuery, *dtos.WalletDTO](c.queryBus, c.getWalletUC)
+	cqrs.RegisterQueryHandler[dtos.ListWalletsQuery, *dtos.WalletListDTO](c.queryBus, c.listWalletsUC)
+	cqrs.RegisterQueryHandler[dtos.GetTransactionQuery, *dtos.TransactionDTO](c.queryBus, c.getTransactionUC)
+	cqrs.RegisterQueryHandler[dtos.ListTransactionsQuery, *dtos.TransactionListDTO](c.queryBus, c.listTransactionsUC)
+	cqrs.RegisterQueryHandler[dtos.GetTransactionByIdempotencyKeyQuery, *dtos.TransactionDTO](c.queryBus, c.getByIdempotencyKeyUC)
 }
 
 // initLogger инициализирует логгер.
@@ -240,6 +354,7 @@ func (c *Container) initUseCases() {
 		c.transactionRepo,
 		c.eventPublisher,
 		c.uow,
+		c.distributedLock, // nil if Redis unavailable
 	)
 	c.processTransactionUC = transaction.NewProcessTransactionUseCase(
 		c.walletRepo,
@@ -258,6 +373,7 @@ func (c *Container) initUseCases() {
 		c.transactionRepo,
 		c.eventPublisher,
 		c.uow,
+		c.fraudDetector,
 	)
 
 	// Exchange Currency
@@ -273,6 +389,7 @@ func (c *Container) initUseCases() {
 		c.eventPublisher,
 		c.uow,
 		c.config.Exchange.SpreadPercent,
+		c.fraudDetector,
 	)
 	c.getByIdempotencyKeyUC = transaction.NewGetTransactionByIdempotencyKeyUseCase(c.transactionRepo)
 	c.getTransactionUC = transaction.NewGetTransactionUseCase(c.transactionRepo)
@@ -287,6 +404,7 @@ func (c *Container) initHTTPServer() {
 	tokenValidator := middleware.NewJWTTokenValidator(
 		c.config.Auth.JWTSecret,
 		c.config.Auth.JWTIssuer,
+		c.tokenBlacklist, // nil if Redis unavailable
 	)
 
 	if c.config.Auth.EnableMockAuth {
@@ -307,33 +425,13 @@ func (c *Container) initHTTPServer() {
 		TelegramBotToken:   c.config.Auth.TelegramBotToken,
 		JWTSecret:          c.config.Auth.JWTSecret,
 		JWTIssuer:          c.config.Auth.JWTIssuer,
+		RedisClient:        c.redisClient,        // nil if Redis unavailable
+		TokenBlacklist:     c.tokenBlacklist,     // nil if Redis unavailable
 	}
 
-	// Build Router
+	// Build Router (CQRS buses dispatch commands/queries through middleware pipeline)
 	router := http.NewRouterBuilder(routerConfig).
-		WithUserUseCases(&http.UserUseCases{
-			CreateUser: c.createUserUC,
-			ApproveKYC: c.approveKYCUC,
-			GetUser:    c.getUserUC,
-			ListUsers:  c.listUsersUC,
-			StartKYC:   c.startKYCUC,
-		}).
-		WithWalletUseCases(&http.WalletUseCases{
-			CreateWallet:     c.createWalletUC,
-			CreditWallet:     c.creditWalletUC,
-			DebitWallet:      c.debitWalletUC,
-			TransferFunds:    c.transferBetweenWalletsUC,
-			ExchangeCurrency: c.exchangeCurrencyUC,
-			GetWallet:        c.getWalletUC,
-			ListWallets:      c.listWalletsUC,
-		}).
-		WithTransactionUseCases(&http.TransactionUseCases{
-			GetTransaction:      c.getTransactionUC,
-			ListTransactions:    c.listTransactionsUC,
-			RetryTransaction:    c.retryTransactionUC,
-			CancelTransaction:   c.cancelTransactionUC,
-			GetByIdempotencyKey: c.getByIdempotencyKeyUC,
-		}).
+		WithCQRS(c.commandBus, c.queryBus).
 		WithTelegramAuth(&http.TelegramAuthDeps{
 			UserRepo:   c.userRepo,
 			WalletRepo: c.walletRepo,
@@ -467,6 +565,13 @@ func (c *Container) Shutdown(ctx context.Context) error {
 	if c.tracerProvider != nil {
 		if err := c.tracerProvider.Shutdown(ctx); err != nil {
 			errs = append(errs, fmt.Errorf("tracer shutdown: %w", err))
+		}
+	}
+
+	// 2b. Redis
+	if c.redisClient != nil {
+		if err := c.redisClient.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("redis shutdown: %w", err))
 		}
 	}
 

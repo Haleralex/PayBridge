@@ -5,6 +5,7 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
+	"github.com/Haleralex/wallethub/internal/application/ports"
 )
 
 const (
@@ -22,6 +25,10 @@ const (
 	AuthUserEmailKey = "auth_user_email"
 	// AuthUserRoleKey - ключ для хранения роли пользователя
 	AuthUserRoleKey = "auth_user_role"
+	// AuthJTIKey - ключ для хранения JTI (JWT ID) в контексте
+	AuthJTIKey = "auth_jti"
+	// AuthExpKey - ключ для хранения времени истечения токена в контексте
+	AuthExpKey = "auth_exp"
 )
 
 // AuthConfig - конфигурация для authentication middleware.
@@ -41,6 +48,7 @@ type AuthClaims struct {
 	Email  string
 	Role   string
 	Exp    time.Time
+	JTI    string // JWT ID — unique token identifier, used for revocation
 }
 
 // Auth middleware для проверки авторизации.
@@ -103,6 +111,8 @@ func Auth(config *AuthConfig) gin.HandlerFunc {
 		c.Set(AuthUserIDKey, claims.UserID)
 		c.Set(AuthUserEmailKey, claims.Email)
 		c.Set(AuthUserRoleKey, claims.Role)
+		c.Set(AuthJTIKey, claims.JTI)
+		c.Set(AuthExpKey, claims.Exp)
 
 		c.Next()
 	}
@@ -195,6 +205,26 @@ func GetAuthUserRole(c *gin.Context) string {
 	return ""
 }
 
+// GetAuthJTI возвращает JTI (JWT ID) из контекста.
+func GetAuthJTI(c *gin.Context) string {
+	if jti, exists := c.Get(AuthJTIKey); exists {
+		if strJTI, ok := jti.(string); ok {
+			return strJTI
+		}
+	}
+	return ""
+}
+
+// GetAuthExp возвращает время истечения токена из контекста.
+func GetAuthExp(c *gin.Context) time.Time {
+	if exp, exists := c.Get(AuthExpKey); exists {
+		if t, ok := exp.(time.Time); ok {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
 // ============================================
 // Development/Testing Helpers
 // ============================================
@@ -205,7 +235,8 @@ func GetAuthUserRole(c *gin.Context) string {
 
 // NewJWTTokenValidator creates a production JWT token validator.
 // Uses HS256 signing method with the provided secret.
-func NewJWTTokenValidator(secret string, issuer string) func(token string) (*AuthClaims, error) {
+// If blacklist is non-nil, revoked tokens are rejected by JTI lookup.
+func NewJWTTokenValidator(secret string, issuer string, blacklist ports.TokenBlacklist) func(token string) (*AuthClaims, error) {
 	return func(tokenString string) (*AuthClaims, error) {
 		parsed, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -232,6 +263,7 @@ func NewJWTTokenValidator(secret string, issuer string) func(token string) (*Aut
 		userID, _ := claims["sub"].(string)
 		email, _ := claims["email"].(string)
 		role, _ := claims["role"].(string)
+		jti, _ := claims["jti"].(string)
 
 		if userID == "" {
 			return nil, fmt.Errorf("missing user ID (sub) in token")
@@ -242,16 +274,29 @@ func NewJWTTokenValidator(secret string, issuer string) func(token string) (*Aut
 			exp = time.Unix(int64(expFloat), 0)
 		}
 
+		// Check blacklist if configured and JTI is present
+		if blacklist != nil && jti != "" {
+			revoked, err := blacklist.IsBlacklisted(context.Background(), jti)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check token revocation: %w", err)
+			}
+			if revoked {
+				return nil, fmt.Errorf("token has been revoked")
+			}
+		}
+
 		return &AuthClaims{
 			UserID: userID,
 			Email:  email,
 			Role:   role,
 			Exp:    exp,
+			JTI:    jti,
 		}, nil
 	}
 }
 
 // GenerateJWT creates a signed JWT token with HS256.
+// Each token has a unique JTI (JWT ID) claim for revocation support.
 func GenerateJWT(secret, issuer, userID, email, role string, expiry time.Duration) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
@@ -259,6 +304,7 @@ func GenerateJWT(secret, issuer, userID, email, role string, expiry time.Duratio
 		"email": email,
 		"role":  role,
 		"iss":   issuer,
+		"jti":   uuid.NewString(),
 		"iat":   now.Unix(),
 		"exp":   now.Add(expiry).Unix(),
 	}

@@ -22,6 +22,7 @@ type ExchangeCurrencyUseCase struct {
 	eventPublisher ports.EventPublisher
 	uow            ports.UnitOfWork
 	spreadPercent  float64
+	fraudDetector  ports.FraudDetector
 }
 
 // NewExchangeCurrencyUseCase creates a new use case.
@@ -32,6 +33,7 @@ func NewExchangeCurrencyUseCase(
 	eventPublisher ports.EventPublisher,
 	uow ports.UnitOfWork,
 	spreadPercent float64,
+	fraudDetector ports.FraudDetector,
 ) *ExchangeCurrencyUseCase {
 	return &ExchangeCurrencyUseCase{
 		walletRepo:      walletRepo,
@@ -40,6 +42,7 @@ func NewExchangeCurrencyUseCase(
 		eventPublisher:  eventPublisher,
 		uow:            uow,
 		spreadPercent:   spreadPercent,
+		fraudDetector:   fraudDetector,
 	}
 }
 
@@ -134,7 +137,29 @@ func (uc *ExchangeCurrencyUseCase) Execute(ctx context.Context, cmd dtos.Exchang
 			return fmt.Errorf("failed to create destination amount: %w", err)
 		}
 
-		// 10. Create EXCHANGE transaction
+		// 10. Fraud check
+		if uc.fraudDetector != nil {
+			fraudResult, err := uc.fraudDetector.Check(txCtx, &ports.FraudCheckRequest{
+				UserID:              sourceWallet.UserID().String(),
+				SourceWalletID:      sourceWalletID.String(),
+				DestinationWalletID: destWalletID.String(),
+				Amount:              cmd.Amount,
+				Currency:            sourceWallet.Currency().Code(),
+				TransactionType:     "EXCHANGE",
+			})
+			if err != nil {
+				return fmt.Errorf("fraud check failed: %w", err)
+			}
+			if !fraudResult.Approved {
+				return errors.NewBusinessRuleViolation(
+					"FraudDetected",
+					fmt.Sprintf("exchange blocked: %s (risk score: %.2f)", fraudResult.Reason, fraudResult.RiskScore),
+					nil,
+				)
+			}
+		}
+
+		// 11. Create EXCHANGE transaction
 		transaction, err := entities.NewTransaction(
 			sourceWalletID,
 			cmd.IdempotencyKey,

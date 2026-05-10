@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,47 +45,26 @@ func TestNewRouterBuilder_NilConfig(t *testing.T) {
 	assert.Equal(t, "development", builder.config.Environment)
 }
 
-func TestRouterBuilder_WithUserUseCases(t *testing.T) {
+func TestRouterBuilder_WithCQRS(t *testing.T) {
 	cfg := DefaultRouterConfig()
-	userUC := &UserUseCases{}
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
 
-	builder := NewRouterBuilder(cfg).WithUserUseCases(userUC)
+	builder := NewRouterBuilder(cfg).WithCQRS(cmdBus, qBus)
 
-	assert.Equal(t, userUC, builder.users)
-}
-
-func TestRouterBuilder_WithWalletUseCases(t *testing.T) {
-	cfg := DefaultRouterConfig()
-	walletUC := &WalletUseCases{}
-
-	builder := NewRouterBuilder(cfg).WithWalletUseCases(walletUC)
-
-	assert.Equal(t, walletUC, builder.wallets)
-}
-
-func TestRouterBuilder_WithTransactionUseCases(t *testing.T) {
-	cfg := DefaultRouterConfig()
-	txUC := &TransactionUseCases{}
-
-	builder := NewRouterBuilder(cfg).WithTransactionUseCases(txUC)
-
-	assert.Equal(t, txUC, builder.transactions)
+	assert.Equal(t, cmdBus, builder.commandBus)
+	assert.Equal(t, qBus, builder.queryBus)
 }
 
 func TestRouterBuilder_Chain(t *testing.T) {
 	cfg := DefaultRouterConfig()
-	userUC := &UserUseCases{}
-	walletUC := &WalletUseCases{}
-	txUC := &TransactionUseCases{}
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
 
-	builder := NewRouterBuilder(cfg).
-		WithUserUseCases(userUC).
-		WithWalletUseCases(walletUC).
-		WithTransactionUseCases(txUC)
+	builder := NewRouterBuilder(cfg).WithCQRS(cmdBus, qBus)
 
-	assert.Equal(t, userUC, builder.users)
-	assert.Equal(t, walletUC, builder.wallets)
-	assert.Equal(t, txUC, builder.transactions)
+	assert.Equal(t, cmdBus, builder.commandBus)
+	assert.Equal(t, qBus, builder.queryBus)
 }
 
 func TestRouterBuilder_Build_Development(t *testing.T) {
@@ -235,63 +215,24 @@ func TestRouter_RequestID(t *testing.T) {
 	assert.NotEmpty(t, w.Header().Get("X-Request-ID"))
 }
 
-func TestRouter_WithUserUseCasesOnly(t *testing.T) {
+func TestRouter_WithCQRSOnly(t *testing.T) {
 	cfg := DefaultRouterConfig()
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
 
 	router := NewRouterBuilder(cfg).
-		WithUserUseCases(&UserUseCases{}).
+		WithCQRS(cmdBus, qBus).
 		Build()
 
 	require.NotNil(t, router)
 }
 
-func TestRouter_WithWalletUseCasesOnly(t *testing.T) {
+func TestRouter_WithoutCQRS(t *testing.T) {
 	cfg := DefaultRouterConfig()
 
-	router := NewRouterBuilder(cfg).
-		WithWalletUseCases(&WalletUseCases{}).
-		Build()
+	router := NewRouterBuilder(cfg).Build()
 
 	require.NotNil(t, router)
-}
-
-func TestRouter_WithTransactionUseCasesOnly(t *testing.T) {
-	cfg := DefaultRouterConfig()
-
-	router := NewRouterBuilder(cfg).
-		WithTransactionUseCases(&TransactionUseCases{}).
-		Build()
-
-	require.NotNil(t, router)
-}
-
-func TestUserUseCases_Structure(t *testing.T) {
-	uc := &UserUseCases{}
-
-	assert.Nil(t, uc.CreateUser)
-	assert.Nil(t, uc.ApproveKYC)
-	assert.Nil(t, uc.GetUser)
-	assert.Nil(t, uc.ListUsers)
-}
-
-func TestWalletUseCases_Structure(t *testing.T) {
-	uc := &WalletUseCases{}
-
-	assert.Nil(t, uc.CreateWallet)
-	assert.Nil(t, uc.CreditWallet)
-	assert.Nil(t, uc.DebitWallet)
-	assert.Nil(t, uc.TransferFunds)
-	assert.Nil(t, uc.GetWallet)
-	assert.Nil(t, uc.ListWallets)
-}
-
-func TestTransactionUseCases_Structure(t *testing.T) {
-	uc := &TransactionUseCases{}
-
-	assert.Nil(t, uc.GetTransaction)
-	assert.Nil(t, uc.ListTransactions)
-	assert.Nil(t, uc.RetryTransaction)
-	assert.Nil(t, uc.CancelTransaction)
 }
 
 func TestRouterConfig_AllFields(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	domainerrors "github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/gin-gonic/gin"
@@ -67,8 +68,34 @@ func (m *MockApproveKYCUseCase) Execute(ctx context.Context, cmd dtos.ApproveKYC
 }
 
 // ============================================
-// Test Setup
+// Helper Functions
 // ============================================
+
+// buildUserBuses creates CommandBus and QueryBus with mock use cases registered.
+func buildUserBuses(
+	createUser *MockCreateUserUseCase,
+	approveKYC *MockApproveKYCUseCase,
+	getUser *MockGetUserUseCase,
+	listUsers *MockListUsersUseCase,
+) (*cqrs.CommandBus, *cqrs.QueryBus) {
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
+
+	if createUser != nil {
+		cqrs.RegisterCommandHandler[dtos.CreateUserCommand, *dtos.UserCreatedDTO](cmdBus, createUser)
+	}
+	if approveKYC != nil {
+		cqrs.RegisterCommandHandler[dtos.ApproveKYCCommand, *dtos.UserDTO](cmdBus, approveKYC)
+	}
+	if getUser != nil {
+		cqrs.RegisterQueryHandler[dtos.GetUserQuery, *dtos.UserDTO](qBus, getUser)
+	}
+	if listUsers != nil {
+		cqrs.RegisterQueryHandler[dtos.ListUsersQuery, *dtos.UserListDTO](qBus, listUsers)
+	}
+
+	return cmdBus, qBus
+}
 
 func setupUserTestRouter(handler *UserHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -88,15 +115,17 @@ func setupUserTestRouter(handler *UserHandler) *gin.Engine {
 // ============================================
 
 func TestNewUserHandler(t *testing.T) {
-	createUser := &MockCreateUserUseCase{}
-	approveKYC := &MockApproveKYCUseCase{}
-	getUser := &MockGetUserUseCase{}
-	listUsers := &MockListUsersUseCase{}
+	cmdBus, qBus := buildUserBuses(
+		&MockCreateUserUseCase{},
+		&MockApproveKYCUseCase{},
+		&MockGetUserUseCase{},
+		&MockListUsersUseCase{},
+	)
 
-	handler := NewUserHandler(createUser, approveKYC, getUser, listUsers, nil)
+	handler := NewUserHandler(cmdBus, qBus)
 
 	assert.NotNil(t, handler)
-	assert.Equal(t, createUser, handler.createUser)
+	assert.Equal(t, cmdBus, handler.commandBus)
 }
 
 // ============================================
@@ -121,7 +150,8 @@ func TestUserHandler_CreateUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(mockUseCase, nil, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(mockUseCase, nil, nil, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -138,7 +168,8 @@ func TestUserHandler_CreateUser(t *testing.T) {
 	})
 
 	t.Run("ValidationError_MissingEmail", func(t *testing.T) {
-		handler := NewUserHandler(&MockCreateUserUseCase{}, nil, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(&MockCreateUserUseCase{}, nil, nil, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -155,7 +186,8 @@ func TestUserHandler_CreateUser(t *testing.T) {
 	})
 
 	t.Run("ValidationError_InvalidEmail", func(t *testing.T) {
-		handler := NewUserHandler(&MockCreateUserUseCase{}, nil, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(&MockCreateUserUseCase{}, nil, nil, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -178,7 +210,8 @@ func TestUserHandler_CreateUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(mockUseCase, nil, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(mockUseCase, nil, nil, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
 
@@ -213,7 +246,8 @@ func TestUserHandler_GetUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, mockUseCase, nil, nil)
+		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -226,7 +260,8 @@ func TestUserHandler_GetUser(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, &MockGetUserUseCase{}, nil, nil)
+		cmdBus, qBus := buildUserBuses(nil, nil, &MockGetUserUseCase{}, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -246,7 +281,8 @@ func TestUserHandler_GetUser(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, mockUseCase, nil, nil)
+		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -258,8 +294,10 @@ func TestUserHandler_GetUser(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
-	t.Run("UseCaseNil", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
 
@@ -290,7 +328,8 @@ func TestUserHandler_ListUsers(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildUserBuses(nil, nil, nil, mockUseCase)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
 
@@ -306,8 +345,10 @@ func TestUserHandler_ListUsers(t *testing.T) {
 		assert.NotNil(t, response["meta"])
 	})
 
-	t.Run("UseCaseNil", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
 
@@ -328,7 +369,8 @@ func TestUserHandler_ListUsers(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildUserBuses(nil, nil, nil, mockUseCase)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
 
@@ -355,7 +397,8 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -372,7 +415,8 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewUserHandler(nil, &MockApproveKYCUseCase{}, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(nil, &MockApproveKYCUseCase{}, nil, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -396,7 +440,8 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 			},
 		}
 
-		handler := NewUserHandler(nil, mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil, nil)
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -412,8 +457,10 @@ func TestUserHandler_ApproveKYC(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("UseCaseNil", func(t *testing.T) {
-		handler := NewUserHandler(nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users/:id/kyc", handler.ApproveKYC)
 
@@ -439,13 +486,14 @@ func TestUserHandler_RegisterRoutes(t *testing.T) {
 	router := gin.New()
 	apiGroup := router.Group("/api/v1")
 
-	handler := NewUserHandler(
+	cmdBus, qBus := buildUserBuses(
 		&MockCreateUserUseCase{},
 		&MockApproveKYCUseCase{},
 		&MockGetUserUseCase{},
 		&MockListUsersUseCase{},
-		nil,
 	)
+
+	handler := NewUserHandler(cmdBus, qBus)
 
 	handler.RegisterRoutes(apiGroup)
 

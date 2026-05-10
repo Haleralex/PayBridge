@@ -179,7 +179,7 @@ func TestCreateTransactionUseCase_Deposit_Success(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.CreateTransactionCommand{
 		WalletID:       walletID.String(),
@@ -270,7 +270,7 @@ func TestCreateTransactionUseCase_Withdraw_Success(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.CreateTransactionCommand{
 		WalletID:       walletID.String(),
@@ -340,7 +340,7 @@ func TestCreateTransactionUseCase_Idempotency(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.CreateTransactionCommand{
 		WalletID:       walletID.String(),
@@ -396,7 +396,7 @@ func TestCreateTransactionUseCase_InsufficientBalance(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.CreateTransactionCommand{
 		WalletID:       walletID.String(),
@@ -434,7 +434,7 @@ func TestCreateTransactionUseCase_InvalidWalletID(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.CreateTransactionCommand{
 		WalletID:       "invalid-uuid",
@@ -483,7 +483,7 @@ func TestCreateTransactionUseCase_WalletNotFound(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.CreateTransactionCommand{
 		WalletID:       walletID.String(),
@@ -533,7 +533,7 @@ func TestCreateTransactionUseCase_InvalidAmount(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.CreateTransactionCommand{
 		WalletID:       walletID.String(),

@@ -61,7 +61,7 @@ func TestTransferBetweenWalletsUseCase_Success(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),
@@ -148,7 +148,7 @@ func TestTransferBetweenWalletsUseCase_CurrencyMismatch(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),
@@ -210,7 +210,7 @@ func TestTransferBetweenWalletsUseCase_InsufficientBalance(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),
@@ -267,7 +267,7 @@ func TestTransferBetweenWalletsUseCase_SameWallet(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      walletID.String(),
@@ -337,7 +337,7 @@ func TestTransferBetweenWalletsUseCase_Idempotency(t *testing.T) {
 	eventPublisher := &mockEventPublisher{}
 	uow := &mockUnitOfWork{}
 
-	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewTransferBetweenWalletsUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	cmd := dtos.TransferFundsCommand{
 		SourceWalletID:      sourceWalletID.String(),

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	domerrors "github.com/Haleralex/wallethub/internal/domain/errors"
 	"github.com/gin-gonic/gin"
@@ -90,6 +91,40 @@ func (m *mockListWalletsUseCase) Execute(ctx context.Context, query dtos.ListWal
 // Helper Functions
 // ============================================
 
+// buildWalletBuses creates CommandBus and QueryBus with mock use cases registered.
+func buildWalletBuses(
+	createWallet *mockCreateWalletUseCase,
+	creditWallet *mockCreditWalletUseCase,
+	debitWallet *mockDebitWalletUseCase,
+	transferFunds *mockTransferFundsUseCase,
+	getWallet *mockGetWalletUseCase,
+	listWallets *mockListWalletsUseCase,
+) (*cqrs.CommandBus, *cqrs.QueryBus) {
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
+
+	if createWallet != nil {
+		cqrs.RegisterCommandHandler[dtos.CreateWalletCommand, *dtos.WalletDTO](cmdBus, createWallet)
+	}
+	if creditWallet != nil {
+		cqrs.RegisterCommandHandler[dtos.CreditWalletCommand, *dtos.WalletOperationDTO](cmdBus, creditWallet)
+	}
+	if debitWallet != nil {
+		cqrs.RegisterCommandHandler[dtos.DebitWalletCommand, *dtos.WalletOperationDTO](cmdBus, debitWallet)
+	}
+	if transferFunds != nil {
+		cqrs.RegisterCommandHandler[dtos.TransferFundsCommand, *dtos.TransferResultDTO](cmdBus, transferFunds)
+	}
+	if getWallet != nil {
+		cqrs.RegisterQueryHandler[dtos.GetWalletQuery, *dtos.WalletDTO](qBus, getWallet)
+	}
+	if listWallets != nil {
+		cqrs.RegisterQueryHandler[dtos.ListWalletsQuery, *dtos.WalletListDTO](qBus, listWallets)
+	}
+
+	return cmdBus, qBus
+}
+
 func setupWalletTestRouter(handler *WalletHandler) *gin.Engine {
 	router := gin.New()
 	handler.RegisterRoutes(router.Group("/api/v1"))
@@ -127,7 +162,9 @@ func ownerGetWalletMock(userID string) *mockGetWalletUseCase {
 // ============================================
 
 func TestNewWalletHandler(t *testing.T) {
-	handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
+	handler := NewWalletHandler(cmdBus, qBus)
 	assert.NotNil(t, handler)
 }
 
@@ -140,7 +177,6 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 
 		mockUseCase := &mockCreateWalletUseCase{
 			ExecuteFn: func(ctx context.Context, cmd dtos.CreateWalletCommand) (*dtos.WalletDTO, error) {
-				// Verify that UserID comes from auth context, not request body
 				assert.Equal(t, userID, cmd.UserID)
 				return &dtos.WalletDTO{
 					ID:               walletID,
@@ -153,7 +189,8 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil, nil)
+		cmdBus, qBus := buildWalletBuses(mockUseCase, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -174,7 +211,8 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 	})
 
 	t.Run("NotAuthenticated", func(t *testing.T) {
-		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil, nil)
+		cmdBus, qBus := buildWalletBuses(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouter(handler)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -191,7 +229,8 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 
 	t.Run("InvalidCurrency", func(t *testing.T) {
 		userID := uuid.New().String()
-		handler := NewWalletHandler(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil, nil)
+		cmdBus, qBus := buildWalletBuses(&mockCreateWalletUseCase{}, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -214,7 +253,8 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(mockUseCase, nil, nil, nil, nil, nil, nil)
+		cmdBus, qBus := buildWalletBuses(mockUseCase, nil, nil, nil, nil, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreateWalletRequest{
@@ -249,7 +289,8 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, mockUseCase, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+walletID, nil)
@@ -274,7 +315,8 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, mockUseCase, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, authUserID)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+walletID, nil)
@@ -286,7 +328,8 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, &mockGetWalletUseCase{}, nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, &mockGetWalletUseCase{}, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/not-a-uuid", nil)
@@ -304,7 +347,8 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, mockUseCase, nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+uuid.New().String(), nil)
@@ -315,8 +359,10 @@ func TestWalletHandler_GetWallet(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/"+uuid.New().String(), nil)
@@ -346,7 +392,8 @@ func TestWalletHandler_ListWallets(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, mockUseCase)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, nil, mockUseCase)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets", nil)
@@ -370,7 +417,8 @@ func TestWalletHandler_ListWallets(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, mockUseCase)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, nil, mockUseCase)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouter(handler)
 
 		userID := uuid.New().String()
@@ -382,8 +430,10 @@ func TestWalletHandler_ListWallets(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets", nil)
@@ -415,7 +465,8 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, mockCredit, nil, nil, nil, ownerGetWalletMock(userID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, mockCredit, nil, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
@@ -436,7 +487,8 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 		authUserID := uuid.New().String()
 		ownerUserID := uuid.New().String()
 
-		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, nil, ownerGetWalletMock(ownerUserID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, &mockCreditWalletUseCase{}, nil, nil, ownerGetWalletMock(ownerUserID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, authUserID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
@@ -455,7 +507,8 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 
 	t.Run("InvalidAmount", func(t *testing.T) {
 		userID := uuid.New().String()
-		handler := NewWalletHandler(nil, &mockCreditWalletUseCase{}, nil, nil, nil, ownerGetWalletMock(userID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, &mockCreditWalletUseCase{}, nil, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(map[string]interface{}{
@@ -480,7 +533,8 @@ func TestWalletHandler_CreditWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, mockCredit, nil, nil, nil, ownerGetWalletMock(userID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, mockCredit, nil, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(CreditWalletRequest{
@@ -518,7 +572,8 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, mockDebit, nil, nil, ownerGetWalletMock(userID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, mockDebit, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(DebitWalletRequest{
@@ -543,7 +598,8 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, mockDebit, nil, nil, ownerGetWalletMock(userID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, mockDebit, nil, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(DebitWalletRequest{
@@ -560,8 +616,10 @@ func TestWalletHandler_DebitWallet(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("NilGetWalletUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		body, _ := json.Marshal(DebitWalletRequest{
@@ -596,7 +654,8 @@ func TestWalletHandler_Transfer(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, mockTransfer, nil, ownerGetWalletMock(userID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, mockTransfer, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(TransferFundsRequest{
@@ -622,7 +681,8 @@ func TestWalletHandler_Transfer(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, mockTransfer, nil, ownerGetWalletMock(userID), nil)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, mockTransfer, ownerGetWalletMock(userID), nil)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, userID)
 
 		body, _ := json.Marshal(TransferFundsRequest{
@@ -640,8 +700,10 @@ func TestWalletHandler_Transfer(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("NilGetWalletUseCase", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouterWithAuth(handler, uuid.New().String())
 
 		body, _ := json.Marshal(TransferFundsRequest{
@@ -677,10 +739,10 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 			},
 		}
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, mockUseCase)
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, nil, mockUseCase)
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := gin.New()
 
-		// Manually set auth middleware
 		router.Use(func(c *gin.Context) {
 			c.Set("auth_user_id", userID.String())
 			c.Next()
@@ -697,7 +759,8 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 	})
 
 	t.Run("NotAuthenticated", func(t *testing.T) {
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, &mockListWalletsUseCase{})
+		cmdBus, qBus := buildWalletBuses(nil, nil, nil, nil, nil, &mockListWalletsUseCase{})
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := setupWalletTestRouter(handler)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets/me", nil)
@@ -708,10 +771,12 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 
-	t.Run("NilUseCase", func(t *testing.T) {
+	t.Run("NoHandlerRegistered", func(t *testing.T) {
 		userID := uuid.New()
 
-		handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
+		cmdBus := cqrs.NewCommandBus()
+		qBus := cqrs.NewQueryBus()
+		handler := NewWalletHandler(cmdBus, qBus)
 		router := gin.New()
 
 		router.Use(func(c *gin.Context) {
@@ -731,7 +796,9 @@ func TestWalletHandler_GetMyWallets(t *testing.T) {
 }
 
 func TestWalletHandler_RegisterRoutes(t *testing.T) {
-	handler := NewWalletHandler(nil, nil, nil, nil, nil, nil, nil)
+	cmdBus := cqrs.NewCommandBus()
+	qBus := cqrs.NewQueryBus()
+	handler := NewWalletHandler(cmdBus, qBus)
 	router := gin.New()
 	handler.RegisterRoutes(router.Group("/api/v1"))
 

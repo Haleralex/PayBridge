@@ -51,12 +51,18 @@ services:
       - PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=${PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN}  # From .env file
       - PAYBRIDGE_AUTH_JWT_SECRET=${PAYBRIDGE_AUTH_JWT_SECRET:-change-me-in-production}
       - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=jaeger:4318
+      - PAYBRIDGE_FRAUD_GRPC_ENDPOINT=fraud-detector:50051
+      - PAYBRIDGE_REDIS_HOST=redis
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       jaeger:
+        condition: service_started
+      fraud-detector:
         condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
@@ -118,6 +124,52 @@ services:
     restart: unless-stopped
 
   # ============================================
+  # Fraud Detection Service (gRPC)
+  # ============================================
+  fraud-detector:
+    build:
+      context: .
+      dockerfile: Dockerfile.fraud
+    container_name: paybridge-fraud-detector
+    environment:
+      - PAYBRIDGE_DATABASE_HOST=postgres
+      - PAYBRIDGE_DATABASE_PORT=5432
+      - PAYBRIDGE_DATABASE_USER=postgres
+      - PAYBRIDGE_DATABASE_PASSWORD=postgres
+      - PAYBRIDGE_DATABASE_DATABASE=paybridge
+      - PAYBRIDGE_FRAUD_GRPC_PORT=50051
+      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=jaeger:4318
+    ports:
+      - "50051:50051"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - paybridge-network
+    restart: unless-stopped
+
+  # ============================================
+  # Redis (Distributed Cache / Rate Limiting / JWT Blacklist)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: paybridge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - paybridge-network
+
+  # ============================================
   # Jaeger (Distributed Tracing)
   # ============================================
   jaeger:
@@ -177,4 +229,5 @@ networks:
 # ============================================
 volumes:
   postgres_data:
+  redis_data:
   nats_data:

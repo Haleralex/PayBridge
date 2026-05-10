@@ -16,10 +16,12 @@ import (
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
 	"github.com/Haleralex/wallethub/internal/adapters/http/handlers"
 	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
+	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/ports"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
@@ -49,6 +51,11 @@ type RouterConfig struct {
 	JWTSecret string
 	// JWTIssuer - issuer claim for JWT tokens
 	JWTIssuer string
+	// RedisClient - optional Redis client for distributed rate limiting.
+	// If nil, falls back to in-memory rate limiting.
+	RedisClient *redis.Client
+	// TokenBlacklist - optional token blacklist for logout support.
+	TokenBlacklist ports.TokenBlacklist
 }
 
 // DefaultRouterConfig - конфигурация по умолчанию для development.
@@ -61,39 +68,6 @@ func DefaultRouterConfig() *RouterConfig {
 		AllowedOrigins:     []string{"*"},
 		AuthTokenValidator: middleware.MockTokenValidator,
 	}
-}
-
-// ============================================
-// Use Case Providers
-// ============================================
-
-// UserUseCases - provider для user use cases.
-type UserUseCases struct {
-	CreateUser handlers.CreateUserUseCase
-	ApproveKYC handlers.ApproveKYCUseCase
-	GetUser    handlers.GetUserUseCase
-	ListUsers  handlers.ListUsersUseCase
-	StartKYC   handlers.StartKYCUseCase
-}
-
-// WalletUseCases - provider для wallet use cases.
-type WalletUseCases struct {
-	CreateWallet     handlers.CreateWalletUseCase
-	CreditWallet     handlers.CreditWalletUseCase
-	DebitWallet      handlers.DebitWalletUseCase
-	TransferFunds    handlers.TransferFundsUseCase
-	ExchangeCurrency handlers.ExchangeCurrencyUseCase
-	GetWallet        handlers.GetWalletUseCase
-	ListWallets      handlers.ListWalletsUseCase
-}
-
-// TransactionUseCases - provider для transaction use cases.
-type TransactionUseCases struct {
-	GetTransaction      handlers.GetTransactionUseCase
-	ListTransactions    handlers.ListTransactionsUseCase
-	RetryTransaction    handlers.RetryTransactionUseCase
-	CancelTransaction   handlers.CancelTransactionUseCase
-	GetByIdempotencyKey handlers.GetTransactionByIdempotencyKeyUseCase
 }
 
 // ============================================
@@ -110,13 +84,12 @@ type TelegramAuthDeps struct {
 //
 // Pattern: Builder
 // - Позволяет пошагово настроить роутер
+// - CQRS buses dispatch commands/queries through middleware pipeline
 // - Проще тестировать
-// - Можно переиспользовать части конфигурации
 type RouterBuilder struct {
 	config       *RouterConfig
-	users        *UserUseCases
-	wallets      *WalletUseCases
-	transactions *TransactionUseCases
+	commandBus   *cqrs.CommandBus
+	queryBus     *cqrs.QueryBus
 	telegramAuth *TelegramAuthDeps
 }
 
@@ -130,21 +103,10 @@ func NewRouterBuilder(config *RouterConfig) *RouterBuilder {
 	}
 }
 
-// WithUserUseCases добавляет user use cases.
-func (b *RouterBuilder) WithUserUseCases(useCases *UserUseCases) *RouterBuilder {
-	b.users = useCases
-	return b
-}
-
-// WithWalletUseCases добавляет wallet use cases.
-func (b *RouterBuilder) WithWalletUseCases(useCases *WalletUseCases) *RouterBuilder {
-	b.wallets = useCases
-	return b
-}
-
-// WithTransactionUseCases добавляет transaction use cases.
-func (b *RouterBuilder) WithTransactionUseCases(useCases *TransactionUseCases) *RouterBuilder {
-	b.transactions = useCases
+// WithCQRS добавляет CQRS Command Bus и Query Bus.
+func (b *RouterBuilder) WithCQRS(commandBus *cqrs.CommandBus, queryBus *cqrs.QueryBus) *RouterBuilder {
+	b.commandBus = commandBus
+	b.queryBus = queryBus
 	return b
 }
 
@@ -196,8 +158,12 @@ func (b *RouterBuilder) Build() *gin.Engine {
 		SkipPaths: []string{"/health", "/live", "/ready", "/metrics"},
 	}))
 
-	// 5. Rate Limiting (global)
-	router.Use(middleware.RateLimit(middleware.DefaultRateLimitConfig()))
+	// 5. Rate Limiting (global) — Redis if available, otherwise in-memory
+	if b.config.RedisClient != nil {
+		router.Use(middleware.RedisRateLimit(b.config.RedisClient, middleware.DefaultRateLimitConfig()))
+	} else {
+		router.Use(middleware.RateLimit(middleware.DefaultRateLimitConfig()))
+	}
 
 	// 6. Metrics (Prometheus)
 	router.Use(middleware.Metrics())
@@ -229,14 +195,8 @@ func (b *RouterBuilder) Build() *gin.Engine {
 	publicGroup := v1.Group("")
 	{
 		// User registration (public)
-		if b.users != nil {
-			userHandler := handlers.NewUserHandler(
-				b.users.CreateUser,
-				b.users.ApproveKYC,
-				b.users.GetUser,
-				b.users.ListUsers,
-				b.users.StartKYC,
-			)
+		if b.commandBus != nil {
+			userHandler := handlers.NewUserHandler(b.commandBus, b.queryBus)
 			publicGroup.POST("/users", userHandler.CreateUser)
 		}
 
@@ -249,8 +209,16 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				JWTSecret:   b.config.JWTSecret,
 				JWTIssuer:   b.config.JWTIssuer,
 				TokenExpiry: 15 * time.Minute,
+				Blacklist:   b.config.TokenBlacklist,
 			})
 			publicGroup.POST("/auth/telegram", tgHandler.Authenticate)
+
+			// Logout requires auth (token must be valid to be revoked)
+			logoutGroup := v1.Group("")
+			logoutGroup.Use(middleware.Auth(&middleware.AuthConfig{
+				TokenValidator: b.config.AuthTokenValidator,
+			}))
+			logoutGroup.POST("/auth/logout", tgHandler.Logout)
 		}
 	}
 
@@ -262,14 +230,8 @@ func (b *RouterBuilder) Build() *gin.Engine {
 	}))
 	{
 		// User routes
-		if b.users != nil {
-			userHandler := handlers.NewUserHandler(
-				b.users.CreateUser,
-				b.users.ApproveKYC,
-				b.users.GetUser,
-				b.users.ListUsers,
-				b.users.StartKYC,
-			)
+		if b.commandBus != nil {
+			userHandler := handlers.NewUserHandler(b.commandBus, b.queryBus)
 			users := protectedGroup.Group("/users")
 			{
 				users.GET("", userHandler.ListUsers)
@@ -280,22 +242,14 @@ func (b *RouterBuilder) Build() *gin.Engine {
 		}
 
 		// Wallet routes
-		if b.wallets != nil {
-			walletHandler := handlers.NewWalletHandler(
-				b.wallets.CreateWallet,
-				b.wallets.CreditWallet,
-				b.wallets.DebitWallet,
-				b.wallets.TransferFunds,
-				b.wallets.ExchangeCurrency,
-				b.wallets.GetWallet,
-				b.wallets.ListWallets,
-			)
+		if b.commandBus != nil {
+			walletHandler := handlers.NewWalletHandler(b.commandBus, b.queryBus)
 			wallets := protectedGroup.Group("/wallets")
 			{
 				wallets.POST("", walletHandler.CreateWallet)
 				wallets.GET("", walletHandler.ListWallets)
 				wallets.GET("/me", walletHandler.GetMyWallets)
-			wallets.POST("/me", walletHandler.GetMyWallets) // POST duplicate for ngrok compatibility
+				wallets.POST("/me", walletHandler.GetMyWallets) // POST duplicate for ngrok compatibility
 				wallets.GET("/:id", walletHandler.GetWallet)
 
 				// Financial operations with stricter rate limiting
@@ -311,14 +265,8 @@ func (b *RouterBuilder) Build() *gin.Engine {
 		}
 
 		// Transaction routes
-		if b.transactions != nil {
-			txHandler := handlers.NewTransactionHandler(
-				b.transactions.GetTransaction,
-				b.transactions.ListTransactions,
-				b.transactions.RetryTransaction,
-				b.transactions.CancelTransaction,
-				b.transactions.GetByIdempotencyKey,
-			)
+		if b.commandBus != nil {
+			txHandler := handlers.NewTransactionHandler(b.commandBus, b.queryBus)
 			transactions := protectedGroup.Group("/transactions")
 			{
 				transactions.GET("", txHandler.ListTransactions)
@@ -328,11 +276,9 @@ func (b *RouterBuilder) Build() *gin.Engine {
 				transactions.POST("/:id/cancel", txHandler.CancelTransaction)
 			}
 
-			// Nested route: /wallets/:id/transactions (uses :id to match other wallet routes)
-			if b.wallets != nil {
-				protectedGroup.GET("/wallets/:id/transactions", txHandler.GetWalletTransactions)
-				protectedGroup.POST("/wallets/:id/transactions", txHandler.GetWalletTransactions) // POST duplicate for ngrok compatibility
-			}
+			// Nested route: /wallets/:id/transactions
+			protectedGroup.GET("/wallets/:id/transactions", txHandler.GetWalletTransactions)
+			protectedGroup.POST("/wallets/:id/transactions", txHandler.GetWalletTransactions) // POST duplicate for ngrok compatibility
 		}
 	}
 
@@ -347,7 +293,6 @@ func (b *RouterBuilder) Build() *gin.Engine {
 	adminGroup.Use(middleware.RequireRole("admin"))
 	{
 		// Admin-only endpoints можно добавить здесь
-		// Например: просмотр всех транзакций, изменение лимитов и т.д.
 	}
 
 	// ============================================
@@ -411,7 +356,6 @@ func NewProductionRouter(pool *pgxpool.Pool, version string, allowedOrigins []st
 		Version:        version,
 		Environment:    "production",
 		AllowedOrigins: allowedOrigins,
-		// В production нужен реальный token validator
 		AuthTokenValidator: nil, // Должен быть установлен!
 	}
 	return NewRouter(config)

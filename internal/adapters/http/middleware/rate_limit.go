@@ -7,11 +7,15 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/Haleralex/wallethub/internal/infrastructure/cache"
 )
 
 // RateLimitConfig - конфигурация для rate limiting.
@@ -231,4 +235,62 @@ func TransactionRateLimit() gin.HandlerFunc {
 			return "ip:" + c.ClientIP()
 		},
 	})
+}
+
+// ============================================
+// Redis-backed rate limiters (distributed)
+// ============================================
+
+// RedisRateLimit is a distributed rate limiter using Redis.
+// Unlike RateLimit (in-memory), it works correctly across multiple instances.
+// Falls back to allowing the request if Redis is unavailable.
+func RedisRateLimit(rdb *redis.Client, config *RateLimitConfig) gin.HandlerFunc {
+	if config == nil {
+		config = DefaultRateLimitConfig()
+	}
+	backend := cache.NewRedisRateLimiterBackend(rdb)
+
+	return func(c *gin.Context) {
+		key := config.KeyFunc(c)
+		// Bucket key includes a time-window slot so counters reset naturally
+		windowSlot := time.Now().Truncate(config.Window).Unix()
+		bucketKey := fmt.Sprintf("%s:%d", key, windowSlot)
+
+		allowed, remaining, retryAfter, err := backend.Allow(c.Request.Context(), bucketKey, config.Limit, config.Window)
+		if err != nil {
+			// Redis unavailable — fail open to avoid blocking legitimate requests
+			c.Next()
+			return
+		}
+
+		c.Header("X-RateLimit-Limit", itoa(config.Limit))
+		c.Header("X-RateLimit-Remaining", itoa(remaining))
+		c.Header("X-RateLimit-Reset", itoa(int(time.Now().Add(retryAfter).Unix())))
+
+		if !allowed {
+			retrySeconds := int(retryAfter.Seconds())
+			if retrySeconds < 1 {
+				retrySeconds = 1
+			}
+			c.Header("Retry-After", itoa(retrySeconds))
+
+			if config.OnLimitReached != nil {
+				config.OnLimitReached(c)
+			}
+
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":        "TOO_MANY_REQUESTS",
+					"message":     "Rate limit exceeded, please try again later",
+					"retry_after": retrySeconds,
+				},
+				"request_id": GetRequestID(c),
+				"timestamp":  time.Now().UTC(),
+			})
+			return
+		}
+
+		c.Next()
+	}
 }
