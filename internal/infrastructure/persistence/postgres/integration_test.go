@@ -100,7 +100,11 @@ func getTestConfig() Config {
 
 // cleanupUsers удаляет всех пользователей из тестовой БД.
 func cleanupUsers(t *testing.T, ctx context.Context) {
-	_, err := testPool.Exec(ctx, "DELETE FROM wallets")
+	_, err := testPool.Exec(ctx, "DELETE FROM transactions")
+	if err != nil {
+		t.Logf("Warning: failed to cleanup transactions: %v", err)
+	}
+	_, err = testPool.Exec(ctx, "DELETE FROM wallets")
 	if err != nil {
 		t.Logf("Warning: failed to cleanup wallets: %v", err)
 	}
