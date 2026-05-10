@@ -91,3 +91,6 @@ out/
 *.pem
 *.key
 *.crt
+
+set-secrets-api.ps1
+*.ps1
