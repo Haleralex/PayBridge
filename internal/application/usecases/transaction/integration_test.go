@@ -186,7 +186,7 @@ func TestCreateTransactionUseCase_Integration_Deposit_Success(t *testing.T) {
 	// или реальный in-memory publisher если нужно проверить события
 	eventPublisher := &mockEventPublisher{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	// 2. Подготовка тестовых данных в БД
 	user := createTestUser(t, ctx, "deposit@test.com", "Deposit Test")
@@ -260,7 +260,7 @@ func TestCreateTransactionUseCase_Integration_Idempotency(t *testing.T) {
 	uow := postgres.NewUnitOfWork(testPool)
 	eventPublisher := &mockEventPublisher{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	user := createTestUser(t, ctx, "idempotency@test.com", "Idempotency Test")
 	wallet := createTestWalletIntegration(t, ctx, user.ID(), "USD", "1000.00")
@@ -336,7 +336,7 @@ func TestCreateTransactionUseCase_Integration_Withdraw_Success(t *testing.T) {
 	uow := postgres.NewUnitOfWork(testPool)
 	eventPublisher := &mockEventPublisher{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	// 2. Подготовка тестовых данных: СНАЧАЛА user, ПОТОМ wallet!
 	user := createTestUser(t, ctx, "withdraw@test.com", "Withdraw Test")
@@ -411,7 +411,7 @@ func TestCreateTransactionUseCase_Integration_InsufficientBalance(t *testing.T) 
 	uow := postgres.NewUnitOfWork(testPool)
 	eventPublisher := &mockEventPublisher{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	// 2. Подготовка тестовых данных: СНАЧАЛА user, ПОТОМ wallet!
 	user := createTestUser(t, ctx, "insufficient@test.com", "Insufficient Balance Test")
@@ -815,7 +815,7 @@ func TestCreateTransactionUseCase_Integration_Concurrent(t *testing.T) {
 	uow := postgres.NewUnitOfWork(testPool)
 	eventPublisher := &mockEventPublisher{}
 
-	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow)
+	useCase := NewCreateTransactionUseCase(walletRepo, transactionRepo, eventPublisher, uow, nil)
 
 	// 2. Подготовка тестовых данных с балансом 1000 USD
 	user := createTestUser(t, ctx, "concurrent@test.com", "Concurrent Test User")
