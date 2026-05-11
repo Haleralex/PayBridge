@@ -603,7 +603,7 @@ func (c *Container) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	// 2b. Redis
+	// 2c. Redis
 	if c.redisClient != nil {
 		if err := c.redisClient.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("redis shutdown: %w", err))
