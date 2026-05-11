@@ -50,7 +50,7 @@ services:
       - PAYBRIDGE_AUTH_ENABLE_MOCK_AUTH=true
       - PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=${PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN}  # From .env file
       - PAYBRIDGE_AUTH_JWT_SECRET=${PAYBRIDGE_AUTH_JWT_SECRET:-change-me-in-production}
-      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=jaeger:4318
+      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=${PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT}
       - PAYBRIDGE_FRAUD_GRPC_ENDPOINT=fraud-detector:50051
       - PAYBRIDGE_REDIS_HOST=redis
     ports:
@@ -60,8 +60,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      jaeger:
-        condition: service_started
       fraud-detector:
         condition: service_started
     healthcheck:
@@ -111,14 +109,12 @@ services:
       - PAYBRIDGE_DATABASE_DATABASE=paybridge
       - PAYBRIDGE_NATS_URL=nats://nats:4222
       - PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN=${PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN}
-      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=jaeger:4318
+      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=${PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT}
     depends_on:
       postgres:
         condition: service_healthy
       nats:
         condition: service_healthy
-      jaeger:
-        condition: service_started
     networks:
       - paybridge-network
     restart: unless-stopped
@@ -138,14 +134,12 @@ services:
       - PAYBRIDGE_DATABASE_PASSWORD=postgres
       - PAYBRIDGE_DATABASE_DATABASE=paybridge
       - PAYBRIDGE_FRAUD_GRPC_PORT=50051
-      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=jaeger:4318
+      - PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT=${PAYBRIDGE_TELEMETRY_OTLP_ENDPOINT}
     ports:
       - "50051:50051"
     depends_on:
       postgres:
         condition: service_healthy
-      jaeger:
-        condition: service_started
     networks:
       - paybridge-network
     restart: unless-stopped
@@ -170,18 +164,27 @@ services:
       - paybridge-network
 
   # ============================================
-  # Jaeger (Distributed Tracing)
+  # Grafana Alloy (Metrics scrape + Log collection)
   # ============================================
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: paybridge-jaeger
+  alloy:
+    image: grafana/alloy:latest
+    container_name: paybridge-alloy
+    volumes:
+      - ./alloy-config.river:/etc/alloy/config.river:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: run --stability.level=experimental /etc/alloy/config.river
     environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "4318:4318"    # OTLP HTTP
+      - GRAFANA_CLOUD_METRICS_URL=${GRAFANA_CLOUD_METRICS_URL}
+      - GRAFANA_CLOUD_METRICS_USER=${GRAFANA_CLOUD_METRICS_USER}
+      - GRAFANA_CLOUD_LOGS_URL=${GRAFANA_CLOUD_LOGS_URL}
+      - GRAFANA_CLOUD_LOGS_USER=${GRAFANA_CLOUD_LOGS_USER}
+      - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
+    depends_on:
+      app:
+        condition: service_healthy
     networks:
       - paybridge-network
+    restart: unless-stopped
 
   # ============================================
   # Telegram Mini App (webapp)
