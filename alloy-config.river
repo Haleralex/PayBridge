@@ -1,0 +1,46 @@
+// Scrape PayBridge Prometheus metrics every 15 seconds.
+// "app:8080" resolves via docker-compose network.
+prometheus.scrape "paybridge" {
+  targets = [{
+    __address__ = "app:8080",
+  }]
+  metrics_path    = "/metrics"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// Push scraped metrics to Grafana Cloud Mimir via remote_write protocol.
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_METRICS_URL")
+
+    basic_auth {
+      username = env("GRAFANA_CLOUD_METRICS_USER")
+      password = env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+}
+
+// Discover all running Docker containers so we can read their logs.
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Tail stdout/stderr from every discovered container and ship to Loki.
+loki.source.docker "default" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// Push log lines to Grafana Cloud Loki.
+loki.write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_LOGS_URL")
+
+    basic_auth {
+      username = env("GRAFANA_CLOUD_LOGS_USER")
+      password = env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+}

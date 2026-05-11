@@ -387,7 +387,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Telemetry defaults
 	v.SetDefault("telemetry.enabled", true)
-	v.SetDefault("telemetry.otlp_endpoint", "http://jaeger:4318")
+	v.SetDefault("telemetry.otlp_endpoint", "")
 
 	// Exchange defaults
 	v.SetDefault("exchange.api_url", "https://v6.exchangerate-api.com/v6")
