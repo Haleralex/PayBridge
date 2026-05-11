@@ -34,6 +34,7 @@ import (
 	"github.com/Haleralex/wallethub/internal/infrastructure/telemetry"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -49,6 +50,7 @@ type Container struct {
 	// Infrastructure
 	pool           *pgxpool.Pool
 	tracerProvider *sdktrace.TracerProvider
+	meterProvider  *sdkmetric.MeterProvider
 	redisClient    *redis.Client
 
 	// Cache / Distributed primitives
@@ -120,6 +122,12 @@ func (c *Container) Initialize(ctx context.Context) error {
 		c.logger.Warn("Failed to initialize tracing, continuing without it", slog.String("error", err.Error()))
 	}
 
+	// 0b. Telemetry (metrics push for Fly.io — locally Alloy scrapes /metrics instead)
+	if err := c.initMetrics(ctx); err != nil {
+		c.logger.Warn("Failed to initialize metrics provider, continuing without it",
+			slog.String("error", err.Error()))
+	}
+
 	// 1. Database
 	if err := c.initDatabase(ctx); err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
@@ -169,6 +177,26 @@ func (c *Container) initTracing(ctx context.Context) error {
 
 	c.tracerProvider = tp
 	c.logger.Info("Tracing initialized",
+		slog.String("endpoint", c.config.Telemetry.OTLPEndpoint),
+	)
+	return nil
+}
+
+// initMetrics initializes OpenTelemetry MeterProvider for OTLP push to Grafana Cloud.
+// On Fly.io (no Alloy sidecar), this pushes paybridge_* Prometheus metrics every 30s.
+// Locally, Alloy scrapes /metrics — this provider is still initialized but harmless.
+func (c *Container) initMetrics(ctx context.Context) error {
+	if !c.config.Telemetry.Enabled {
+		return nil
+	}
+
+	mp, err := telemetry.InitMeterProvider(ctx, c.config.App.Name, c.config.Telemetry.OTLPEndpoint)
+	if err != nil {
+		return err
+	}
+
+	c.meterProvider = mp
+	c.logger.Info("Metrics provider initialized",
 		slog.String("endpoint", c.config.Telemetry.OTLPEndpoint),
 	)
 	return nil
@@ -565,6 +593,13 @@ func (c *Container) Shutdown(ctx context.Context) error {
 	if c.tracerProvider != nil {
 		if err := c.tracerProvider.Shutdown(ctx); err != nil {
 			errs = append(errs, fmt.Errorf("tracer shutdown: %w", err))
+		}
+	}
+
+	// 2b. Meter Provider
+	if c.meterProvider != nil {
+		if err := c.meterProvider.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("meter provider shutdown: %w", err))
 		}
 	}
 
