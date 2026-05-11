@@ -17,6 +17,13 @@ primary_region = "fra"
   PAYBRIDGE_NATS_URL = "nats://paybridge-nats.internal:4222"
   PAYBRIDGE_TELEMETRY_ENABLED = "true"
 
+# Log drain to Grafana Cloud Loki is managed via flyctl (not stored in fly.toml).
+# To recreate if lost:
+#   flyctl log-destination create --app paybridge-api --type https \
+#     --url "<GRAFANA_CLOUD_LOKI_URL>" \
+#     --header "Authorization=Basic <base64(loki_user_id:api_key)>"
+# Get credentials: Grafana Cloud → Your Stack → Loki → "Send Logs"
+
 [http_service]
   internal_port = 8080
   force_https = true
