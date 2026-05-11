@@ -10,6 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/Haleralex/wallethub/internal/application/ports"
 	"github.com/Haleralex/wallethub/internal/domain/entities"
@@ -156,6 +160,16 @@ func (r *WalletRepository) update(ctx context.Context, q querier, wallet *entiti
 
 // FindByID загружает кошелёк по ID.
 func (r *WalletRepository) FindByID(ctx context.Context, id uuid.UUID) (*entities.Wallet, error) {
+	ctx, span := otel.Tracer("paybridge/wallet-repository").Start(ctx, "WalletRepository.FindByID",
+		trace.WithAttributes(
+			attribute.String("wallet.id", id.String()),
+			attribute.String("db.system", "postgresql"),
+			attribute.String("db.operation", "SELECT"),
+			attribute.String("db.sql.table", "wallets"),
+		),
+	)
+	defer span.End()
+
 	q := r.getQuerier(ctx)
 
 	query := `
@@ -166,7 +180,14 @@ func (r *WalletRepository) FindByID(ctx context.Context, id uuid.UUID) (*entitie
 		WHERE id = $1
 	`
 
-	return r.scanWallet(q.QueryRow(ctx, query, id))
+	wallet, err := r.scanWallet(q.QueryRow(ctx, query, id))
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+
+	return wallet, nil
 }
 
 // FindByUserAndCurrency находит кошелёк пользователя для конкретной валюты.
