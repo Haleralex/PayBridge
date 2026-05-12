@@ -2,8 +2,7 @@
 
 **Production-grade payment gateway** built with Go, Clean Architecture, and an enterprise observability stack.
 
-[![Tests](https://github.com/Haleralex/PayBridge/actions/workflows/tests.yml/badge.svg)](https://github.com/Haleralex/PayBridge/actions/workflows/tests.yml)
-[![CI](https://github.com/Haleralex/PayBridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Haleralex/PayBridge/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/Haleralex/PayBridge/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/Haleralex/PayBridge/actions/workflows/ci-cd.yml)
 [![Coverage](https://img.shields.io/badge/coverage-56%25-brightgreen.svg)](https://github.com/Haleralex/PayBridge)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
