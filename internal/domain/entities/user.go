@@ -98,7 +98,7 @@ func NewUser(email, fullName string) (*User, error) {
 		id:        id,
 		email:     email,
 		fullName:  fullName,
-		kycStatus: KYCStatusUnverified, // Business rule: Start unverified
+		kycStatus: KYCStatusVerified, // Users are auto-verified — no real KYC workflow in this project
 		createdAt: now,
 		updatedAt: now,
 	}, nil

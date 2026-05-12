@@ -56,17 +56,6 @@ func (m *MockListUsersUseCase) Execute(ctx context.Context, query dtos.ListUsers
 	return nil, errors.New("not implemented")
 }
 
-type MockApproveKYCUseCase struct {
-	ExecuteFn func(ctx context.Context, cmd dtos.ApproveKYCCommand) (*dtos.UserDTO, error)
-}
-
-func (m *MockApproveKYCUseCase) Execute(ctx context.Context, cmd dtos.ApproveKYCCommand) (*dtos.UserDTO, error) {
-	if m.ExecuteFn != nil {
-		return m.ExecuteFn(ctx, cmd)
-	}
-	return nil, errors.New("not implemented")
-}
-
 // ============================================
 // Helper Functions
 // ============================================
@@ -74,7 +63,6 @@ func (m *MockApproveKYCUseCase) Execute(ctx context.Context, cmd dtos.ApproveKYC
 // buildUserBuses creates CommandBus and QueryBus with mock use cases registered.
 func buildUserBuses(
 	createUser *MockCreateUserUseCase,
-	approveKYC *MockApproveKYCUseCase,
 	getUser *MockGetUserUseCase,
 	listUsers *MockListUsersUseCase,
 ) (*cqrs.CommandBus, *cqrs.QueryBus) {
@@ -83,9 +71,6 @@ func buildUserBuses(
 
 	if createUser != nil {
 		cqrs.RegisterCommandHandler[dtos.CreateUserCommand, *dtos.UserCreatedDTO](cmdBus, createUser)
-	}
-	if approveKYC != nil {
-		cqrs.RegisterCommandHandler[dtos.ApproveKYCCommand, *dtos.UserDTO](cmdBus, approveKYC)
 	}
 	if getUser != nil {
 		cqrs.RegisterQueryHandler[dtos.GetUserQuery, *dtos.UserDTO](qBus, getUser)
@@ -117,7 +102,6 @@ func setupUserTestRouter(handler *UserHandler) *gin.Engine {
 func TestNewUserHandler(t *testing.T) {
 	cmdBus, qBus := buildUserBuses(
 		&MockCreateUserUseCase{},
-		&MockApproveKYCUseCase{},
 		&MockGetUserUseCase{},
 		&MockListUsersUseCase{},
 	)
@@ -150,7 +134,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 			},
 		}
 
-		cmdBus, qBus := buildUserBuses(mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(mockUseCase, nil, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
@@ -168,7 +152,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 	})
 
 	t.Run("ValidationError_MissingEmail", func(t *testing.T) {
-		cmdBus, qBus := buildUserBuses(&MockCreateUserUseCase{}, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(&MockCreateUserUseCase{}, nil, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
@@ -186,7 +170,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 	})
 
 	t.Run("ValidationError_InvalidEmail", func(t *testing.T) {
-		cmdBus, qBus := buildUserBuses(&MockCreateUserUseCase{}, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(&MockCreateUserUseCase{}, nil, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
@@ -210,7 +194,7 @@ func TestUserHandler_CreateUser(t *testing.T) {
 			},
 		}
 
-		cmdBus, qBus := buildUserBuses(mockUseCase, nil, nil, nil)
+		cmdBus, qBus := buildUserBuses(mockUseCase, nil, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.POST("/users", handler.CreateUser)
@@ -246,7 +230,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 			},
 		}
 
-		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
@@ -260,7 +244,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 	})
 
 	t.Run("InvalidUUID", func(t *testing.T) {
-		cmdBus, qBus := buildUserBuses(nil, nil, &MockGetUserUseCase{}, nil)
+		cmdBus, qBus := buildUserBuses(nil, &MockGetUserUseCase{}, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
@@ -281,7 +265,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 			},
 		}
 
-		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase, nil)
+		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users/:id", handler.GetUser)
@@ -328,7 +312,7 @@ func TestUserHandler_ListUsers(t *testing.T) {
 			},
 		}
 
-		cmdBus, qBus := buildUserBuses(nil, nil, nil, mockUseCase)
+		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
@@ -369,7 +353,7 @@ func TestUserHandler_ListUsers(t *testing.T) {
 			},
 		}
 
-		cmdBus, qBus := buildUserBuses(nil, nil, nil, mockUseCase)
+		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
 		router.GET("/users", handler.ListUsers)
@@ -384,100 +368,6 @@ func TestUserHandler_ListUsers(t *testing.T) {
 }
 
 // ============================================
-// Test ApproveKYC Handler
-// ============================================
-
-func TestUserHandler_ApproveKYC(t *testing.T) {
-	t.Run("Success_Approve", func(t *testing.T) {
-		userID := uuid.New().String()
-		mockUseCase := &MockApproveKYCUseCase{
-			ExecuteFn: func(ctx context.Context, cmd dtos.ApproveKYCCommand) (*dtos.UserDTO, error) {
-				assert.True(t, cmd.Verified)
-				return &dtos.UserDTO{ID: userID, KYCStatus: "VERIFIED"}, nil
-			},
-		}
-
-		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil, nil)
-		handler := NewUserHandler(cmdBus, qBus)
-		router := setupUserTestRouter(handler)
-		router.POST("/users/:id/kyc", handler.ApproveKYC)
-
-		reqBody := ApproveKYCRequest{Approved: true}
-		bodyJSON, _ := json.Marshal(reqBody)
-
-		req := httptest.NewRequest(http.MethodPost, "/users/"+userID+"/kyc", bytes.NewBuffer(bodyJSON))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-	})
-
-	t.Run("InvalidUUID", func(t *testing.T) {
-		cmdBus, qBus := buildUserBuses(nil, &MockApproveKYCUseCase{}, nil, nil)
-		handler := NewUserHandler(cmdBus, qBus)
-		router := setupUserTestRouter(handler)
-		router.POST("/users/:id/kyc", handler.ApproveKYC)
-
-		reqBody := ApproveKYCRequest{Approved: true}
-		bodyJSON, _ := json.Marshal(reqBody)
-
-		req := httptest.NewRequest(http.MethodPost, "/users/invalid/kyc", bytes.NewBuffer(bodyJSON))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-
-	t.Run("BusinessRuleViolation", func(t *testing.T) {
-		userID := uuid.New().String()
-		mockUseCase := &MockApproveKYCUseCase{
-			ExecuteFn: func(ctx context.Context, cmd dtos.ApproveKYCCommand) (*dtos.UserDTO, error) {
-				return nil, domainerrors.NewBusinessRuleViolation("KYC_DONE", "Already verified", nil)
-			},
-		}
-
-		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil, nil)
-		handler := NewUserHandler(cmdBus, qBus)
-		router := setupUserTestRouter(handler)
-		router.POST("/users/:id/kyc", handler.ApproveKYC)
-
-		reqBody := ApproveKYCRequest{Approved: true}
-		bodyJSON, _ := json.Marshal(reqBody)
-
-		req := httptest.NewRequest(http.MethodPost, "/users/"+userID+"/kyc", bytes.NewBuffer(bodyJSON))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-	})
-
-	t.Run("NoHandlerRegistered", func(t *testing.T) {
-		cmdBus := cqrs.NewCommandBus()
-		qBus := cqrs.NewQueryBus()
-		handler := NewUserHandler(cmdBus, qBus)
-		router := setupUserTestRouter(handler)
-		router.POST("/users/:id/kyc", handler.ApproveKYC)
-
-		reqBody := ApproveKYCRequest{Approved: true}
-		bodyJSON, _ := json.Marshal(reqBody)
-
-		req := httptest.NewRequest(http.MethodPost, "/users/"+uuid.New().String()+"/kyc", bytes.NewBuffer(bodyJSON))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
-}
-
-// ============================================
 // Test RegisterRoutes
 // ============================================
 
@@ -488,7 +378,6 @@ func TestUserHandler_RegisterRoutes(t *testing.T) {
 
 	cmdBus, qBus := buildUserBuses(
 		&MockCreateUserUseCase{},
-		&MockApproveKYCUseCase{},
 		&MockGetUserUseCase{},
 		&MockListUsersUseCase{},
 	)
@@ -498,5 +387,5 @@ func TestUserHandler_RegisterRoutes(t *testing.T) {
 	handler.RegisterRoutes(apiGroup)
 
 	routes := router.Routes()
-	require.GreaterOrEqual(t, len(routes), 5)
+	require.GreaterOrEqual(t, len(routes), 3)
 }

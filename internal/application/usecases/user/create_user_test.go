@@ -163,8 +163,8 @@ func TestCreateUserUseCase_Success(t *testing.T) {
 		t.Errorf("Expected full name %s, got %s", cmd.FullName, result.User.FullName)
 	}
 
-	if result.User.KYCStatus != string(entities.KYCStatusUnverified) {
-		t.Errorf("Expected KYC status UNVERIFIED, got %s", result.User.KYCStatus)
+	if result.User.KYCStatus != string(entities.KYCStatusVerified) {
+		t.Errorf("Expected KYC status VERIFIED, got %s", result.User.KYCStatus)
 	}
 
 	// Проверяем, что событие было опубликовано

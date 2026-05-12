@@ -20,24 +20,9 @@ func TestToUserDTO(t *testing.T) {
 	assert.Equal(t, user.ID().String(), dto.ID)
 	assert.Equal(t, "test@example.com", dto.Email)
 	assert.Equal(t, "Test User", dto.FullName)
-	assert.Equal(t, "UNVERIFIED", dto.KYCStatus)
+	assert.Equal(t, "VERIFIED", dto.KYCStatus)
 	assert.False(t, dto.CreatedAt.IsZero())
 	assert.False(t, dto.UpdatedAt.IsZero())
-}
-
-func TestToUserDTO_WithVerifiedStatus(t *testing.T) {
-	user, err := entities.NewUser("verified@example.com", "Verified User")
-	require.NoError(t, err)
-
-	err = user.StartKYCVerification()
-	require.NoError(t, err)
-
-	err = user.ApproveKYC()
-	require.NoError(t, err)
-
-	dto := ToUserDTO(user)
-
-	assert.Equal(t, "VERIFIED", dto.KYCStatus)
 }
 
 func TestToUserDTOList(t *testing.T) {

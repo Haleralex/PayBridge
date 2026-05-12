@@ -78,10 +78,8 @@ type Container struct {
 
 	// Use Cases
 	createUserUC             *user.CreateUserUseCase
-	approveKYCUC             *user.ApproveKYCUseCase
 	getUserUC                *user.GetUserUseCase
 	listUsersUC              *user.ListUsersUseCase
-	startKYCUC               *user.StartKYCUseCase
 	createWalletUC           *wallet.CreateWalletUseCase
 	creditWalletUC           *wallet.CreditWalletUseCase
 	debitWalletUC            *wallet.DebitWalletUseCase
@@ -266,8 +264,6 @@ func (c *Container) initCQRS() {
 
 	// Register Command Handlers
 	cqrs.RegisterCommandHandler[dtos.CreateUserCommand, *dtos.UserCreatedDTO](c.commandBus, c.createUserUC)
-	cqrs.RegisterCommandHandler[dtos.ApproveKYCCommand, *dtos.UserDTO](c.commandBus, c.approveKYCUC)
-	cqrs.RegisterCommandHandler[dtos.StartKYCVerificationCommand, *dtos.UserDTO](c.commandBus, c.startKYCUC)
 	cqrs.RegisterCommandHandler[dtos.CreateWalletCommand, *dtos.WalletDTO](c.commandBus, c.createWalletUC)
 	cqrs.RegisterCommandHandler[dtos.CreditWalletCommand, *dtos.WalletOperationDTO](c.commandBus, c.creditWalletUC)
 	cqrs.RegisterCommandHandler[dtos.DebitWalletCommand, *dtos.WalletOperationDTO](c.commandBus, c.debitWalletUC)
@@ -364,10 +360,8 @@ func (c *Container) initRepositories() {
 func (c *Container) initUseCases() {
 	// User Use Cases
 	c.createUserUC = user.NewCreateUserUseCase(c.userRepo, c.eventPublisher, c.uow)
-	c.approveKYCUC = user.NewApproveKYCUseCase(c.userRepo, c.eventPublisher, c.uow)
 	c.getUserUC = user.NewGetUserUseCase(c.userRepo)
 	c.listUsersUC = user.NewListUsersUseCase(c.userRepo)
-	c.startKYCUC = user.NewStartKYCUseCase(c.userRepo, c.eventPublisher, c.uow)
 
 	// Wallet Use Cases
 	c.createWalletUC = wallet.NewCreateWalletUseCase(c.userRepo, c.walletRepo, c.eventPublisher, c.uow)
@@ -535,11 +529,6 @@ func (c *Container) UnitOfWork() ports.UnitOfWork {
 // CreateUserUseCase возвращает use case создания пользователя.
 func (c *Container) CreateUserUseCase() *user.CreateUserUseCase {
 	return c.createUserUC
-}
-
-// ApproveKYCUseCase возвращает use case подтверждения KYC.
-func (c *Container) ApproveKYCUseCase() *user.ApproveKYCUseCase {
-	return c.approveKYCUC
 }
 
 // CreateWalletUseCase возвращает use case создания кошелька.

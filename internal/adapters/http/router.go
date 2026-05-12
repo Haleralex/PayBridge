@@ -236,8 +236,6 @@ func (b *RouterBuilder) Build() *gin.Engine {
 			{
 				users.GET("", userHandler.ListUsers)
 				users.GET("/:id", userHandler.GetUser)
-				users.POST("/:id/kyc", userHandler.ApproveKYC)
-				users.POST("/:id/kyc/start", userHandler.StartKYC)
 			}
 		}
 

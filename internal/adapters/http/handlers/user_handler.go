@@ -42,14 +42,6 @@ type CreateUserRequest struct {
 	FullName string `json:"full_name" binding:"required,min=2,max=100"`
 }
 
-// ApproveKYCRequest - запрос на одобрение/отклонение KYC.
-//
-// @Description Approve KYC request body
-type ApproveKYCRequest struct {
-	Approved bool   `json:"approved" binding:"required"`
-	Reason   string `json:"reason,omitempty"`
-}
-
 // UserIDParam - параметр ID пользователя из URL.
 type UserIDParam struct {
 	ID string `uri:"id" binding:"required,uuid"`
@@ -160,95 +152,17 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	common.SuccessWithMeta(c, http.StatusOK, result, meta)
 }
 
-// ApproveKYC одобряет или отклоняет KYC верификацию.
-//
-// @Summary Approve or reject KYC verification
-// @Description Approve or reject user's KYC verification
-// @Tags Users
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID" format(uuid)
-// @Param request body ApproveKYCRequest true "KYC decision"
-// @Success 200 {object} common.APIResponse{data=dtos.UserDTO}
-// @Failure 400 {object} common.APIResponse
-// @Failure 404 {object} common.APIResponse
-// @Failure 422 {object} common.APIResponse
-// @Failure 500 {object} common.APIResponse
-// @Router /api/v1/users/{id}/kyc [post]
-func (h *UserHandler) ApproveKYC(c *gin.Context) {
-	var params UserIDParam
-	if !BindURI(c, &params) {
-		return
-	}
-
-	var req ApproveKYCRequest
-	if !BindJSON(c, &req) {
-		return
-	}
-
-	cmd := dtos.ApproveKYCCommand{
-		UserID:   params.ID,
-		Verified: req.Approved,
-		Reason:   req.Reason,
-	}
-
-	result, err := cqrs.DispatchCommand[dtos.ApproveKYCCommand, *dtos.UserDTO](h.commandBus, c.Request.Context(), cmd)
-	if err != nil {
-		common.HandleDomainError(c, err)
-		return
-	}
-
-	common.Success(c, http.StatusOK, result)
-}
-
-// StartKYC начинает процесс KYC верификации.
-//
-// @Summary Start KYC verification
-// @Description Start the KYC verification process for a user
-// @Tags Users
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID" format(uuid)
-// @Success 200 {object} common.APIResponse{data=dtos.UserDTO}
-// @Failure 400 {object} common.APIResponse
-// @Failure 404 {object} common.APIResponse
-// @Failure 422 {object} common.APIResponse
-// @Failure 500 {object} common.APIResponse
-// @Router /api/v1/users/{id}/kyc/start [post]
-func (h *UserHandler) StartKYC(c *gin.Context) {
-	var params UserIDParam
-	if !BindURI(c, &params) {
-		return
-	}
-
-	cmd := dtos.StartKYCVerificationCommand{
-		UserID: params.ID,
-	}
-
-	result, err := cqrs.DispatchCommand[dtos.StartKYCVerificationCommand, *dtos.UserDTO](h.commandBus, c.Request.Context(), cmd)
-	if err != nil {
-		common.HandleDomainError(c, err)
-		return
-	}
-
-	common.Success(c, http.StatusOK, result)
-}
-
 // RegisterRoutes регистрирует маршруты для UserHandler.
 //
 // Routes:
 // - POST   /users          - Create user
 // - GET    /users          - List users
 // - GET    /users/:id      - Get user by ID
-// - POST   /users/:id/kyc  - Approve/Reject KYC
-// - POST   /users/:id/kyc/start - Start KYC process
 func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	users := router.Group("/users")
 	{
 		users.POST("", h.CreateUser)
 		users.GET("", h.ListUsers)
 		users.GET("/:id", h.GetUser)
-		users.POST("/:id/kyc", h.ApproveKYC)
-		users.POST("/:id/kyc/start", h.StartKYC)
 	}
 }

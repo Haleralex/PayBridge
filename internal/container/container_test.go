@@ -90,13 +90,6 @@ func TestContainer_CreateUserUseCase_BeforeInit(t *testing.T) {
 	assert.Nil(t, c.CreateUserUseCase())
 }
 
-func TestContainer_ApproveKYCUseCase_BeforeInit(t *testing.T) {
-	cfg := config.Development()
-	c := New(cfg)
-
-	assert.Nil(t, c.ApproveKYCUseCase())
-}
-
 func TestContainer_CreateWalletUseCase_BeforeInit(t *testing.T) {
 	cfg := config.Development()
 	c := New(cfg)

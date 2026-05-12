@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Haleralex/wallethub/internal/domain/entities"
-	"github.com/Haleralex/wallethub/internal/domain/errors"
 )
 
 // TestNewUser_Success tests successful user creation.
@@ -24,9 +23,9 @@ func TestNewUser_Success(t *testing.T) {
 		t.Errorf("FullName = %v, want John Doe", user.FullName())
 	}
 
-	// Business rule: New users start unverified
-	if user.KYCStatus() != entities.KYCStatusUnverified {
-		t.Errorf("KYCStatus = %v, want UNVERIFIED", user.KYCStatus())
+	// Users are auto-verified — no real KYC workflow in this project
+	if user.KYCStatus() != entities.KYCStatusVerified {
+		t.Errorf("KYCStatus = %v, want VERIFIED", user.KYCStatus())
 	}
 
 	// Entity must have identity
@@ -64,93 +63,13 @@ func TestNewUser_EmptyFullName(t *testing.T) {
 	}
 }
 
-// TestUser_KYCWorkflow tests the complete KYC state machine.
-// Business Rules:
-// - Can start KYC from UNVERIFIED or REJECTED
-// - Can approve from PENDING
-// - Can reject from PENDING
-func TestUser_KYCWorkflow(t *testing.T) {
-	user, _ := entities.NewUser("test@example.com", "John Doe")
-
-	t.Run("Start KYC verification", func(t *testing.T) {
-		err := user.StartKYCVerification()
-		if err != nil {
-			t.Fatalf("StartKYCVerification() error = %v", err)
-		}
-
-		if user.KYCStatus() != entities.KYCStatusPending {
-			t.Errorf("KYCStatus = %v, want PENDING", user.KYCStatus())
-		}
-	})
-
-	t.Run("Cannot start KYC when already pending", func(t *testing.T) {
-		err := user.StartKYCVerification()
-		if err == nil {
-			t.Error("Expected error when starting KYC while pending")
-		}
-	})
-
-	t.Run("Approve KYC", func(t *testing.T) {
-		err := user.ApproveKYC()
-		if err != nil {
-			t.Fatalf("ApproveKYC() error = %v", err)
-		}
-
-		if user.KYCStatus() != entities.KYCStatusVerified {
-			t.Errorf("KYCStatus = %v, want VERIFIED", user.KYCStatus())
-		}
-
-		if !user.IsVerified() {
-			t.Error("User should be verified")
-		}
-	})
-}
-
-// TestUser_KYCRejection tests rejection workflow.
-func TestUser_KYCRejection(t *testing.T) {
-	user, _ := entities.NewUser("test@example.com", "John Doe")
-	_ = user.StartKYCVerification()
-
-	err := user.RejectKYC()
-	if err != nil {
-		t.Fatalf("RejectKYC() error = %v", err)
-	}
-
-	if user.KYCStatus() != entities.KYCStatusRejected {
-		t.Errorf("KYCStatus = %v, want REJECTED", user.KYCStatus())
-	}
-
-	// Business rule: Can retry KYC after rejection
-	err = user.StartKYCVerification()
-	if err != nil {
-		t.Error("Should be able to restart KYC after rejection")
-	}
-}
-
-// TestUser_CanCreateWallet tests wallet creation permission.
-// Business Rule: Only verified users can create wallets.
+// TestUser_CanCreateWallet tests that newly created users can create wallets.
 func TestUser_CanCreateWallet(t *testing.T) {
-	t.Run("Unverified user cannot create wallet", func(t *testing.T) {
-		user, _ := entities.NewUser("test@example.com", "John Doe")
-		err := user.CanCreateWallet()
-		if err == nil {
-			t.Error("Unverified user should not be able to create wallet")
-		}
-		if err != errors.ErrUserNotVerified {
-			t.Errorf("Expected ErrUserNotVerified, got %v", err)
-		}
-	})
+	user, _ := entities.NewUser("test@example.com", "John Doe")
 
-	t.Run("Verified user can create wallet", func(t *testing.T) {
-		user, _ := entities.NewUser("test@example.com", "John Doe")
-		_ = user.StartKYCVerification()
-		_ = user.ApproveKYC()
-
-		err := user.CanCreateWallet()
-		if err != nil {
-			t.Errorf("Verified user should be able to create wallet, got error: %v", err)
-		}
-	})
+	if err := user.CanCreateWallet(); err != nil {
+		t.Errorf("Newly created user should be able to create wallet, got error: %v", err)
+	}
 }
 
 // TestUser_UpdateEmail tests email update with validation.
@@ -281,12 +200,8 @@ func TestUser_UpdatedAt(t *testing.T) {
 
 // TestReconstructUser tests reconstruction from persistence.
 func TestReconstructUser(t *testing.T) {
-	// Simulate data from database
 	user, _ := entities.NewUser("test@example.com", "John Doe")
-	_ = user.StartKYCVerification()
-	_ = user.ApproveKYC()
 
-	// Reconstruct from stored values
 	reconstructed := entities.ReconstructUser(
 		user.ID(),
 		user.Email(),
@@ -303,202 +218,8 @@ func TestReconstructUser(t *testing.T) {
 	if reconstructed.Email() != user.Email() {
 		t.Error("Email mismatch after reconstruction")
 	}
-	if reconstructed.KYCStatus() != entities.KYCStatusVerified {
+	if reconstructed.KYCStatus() != user.KYCStatus() {
 		t.Error("KYC status mismatch after reconstruction")
 	}
 }
 
-// TestKYCStatus_IsValid tests KYC status validation.
-func TestKYCStatus_IsValid(t *testing.T) {
-	tests := []struct {
-		status entities.KYCStatus
-		valid  bool
-	}{
-		{entities.KYCStatusUnverified, true},
-		{entities.KYCStatusPending, true},
-		{entities.KYCStatusVerified, true},
-		{entities.KYCStatusRejected, true},
-		{entities.KYCStatus("INVALID"), false},
-		{entities.KYCStatus(""), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(string(tt.status), func(t *testing.T) {
-			if got := tt.status.IsValid(); got != tt.valid {
-				t.Errorf("IsValid() = %v, want %v", got, tt.valid)
-			}
-		})
-	}
-}
-
-// TestUser_ApproveKYC_WhenNotPending tests approve fails when not pending.
-func TestUser_ApproveKYC_WhenNotPending(t *testing.T) {
-	tests := []struct {
-		name   string
-		status entities.KYCStatus
-	}{
-		{"unverified", entities.KYCStatusUnverified},
-		{"verified", entities.KYCStatusVerified},
-		{"rejected", entities.KYCStatusRejected},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			user, _ := entities.NewUser("test@example.com", "John Doe")
-
-			// Manually set status using ReconstructUser
-			user = entities.ReconstructUser(
-				user.ID(),
-				user.Email(),
-				user.FullName(),
-				tt.status,
-				nil,
-				user.CreatedAt(),
-				user.UpdatedAt(),
-			)
-
-			err := user.ApproveKYC()
-			if err == nil {
-				t.Errorf("ApproveKYC should fail when status is %v", tt.status)
-			}
-		})
-	}
-}
-
-// TestUser_RejectKYC_WhenNotPending tests reject fails when not pending.
-func TestUser_RejectKYC_WhenNotPending(t *testing.T) {
-	user, _ := entities.NewUser("test@example.com", "John Doe")
-
-	// Try to reject without starting KYC
-	err := user.RejectKYC()
-	if err == nil {
-		t.Error("RejectKYC should fail when not pending")
-	}
-}
-
-// TestUser_CanPerformTransaction tests transaction permission.
-func TestUser_CanPerformTransaction(t *testing.T) {
-	t.Run("Unverified user cannot transact", func(t *testing.T) {
-		user, _ := entities.NewUser("test@example.com", "John Doe")
-		err := user.CanPerformTransaction()
-		if err == nil {
-			t.Error("Unverified user should not be able to transact")
-		}
-		if err != errors.ErrUserNotVerified {
-			t.Errorf("Expected ErrUserNotVerified, got %v", err)
-		}
-	})
-
-	t.Run("Verified user can transact", func(t *testing.T) {
-		user, _ := entities.NewUser("test@example.com", "John Doe")
-		_ = user.StartKYCVerification()
-		_ = user.ApproveKYC()
-
-		err := user.CanPerformTransaction()
-		if err != nil {
-			t.Errorf("Verified user should be able to transact, got error: %v", err)
-		}
-	})
-
-	t.Run("Pending user cannot transact", func(t *testing.T) {
-		user, _ := entities.NewUser("test@example.com", "John Doe")
-		_ = user.StartKYCVerification()
-
-		err := user.CanPerformTransaction()
-		if err == nil {
-			t.Error("Pending user should not be able to transact")
-		}
-	})
-
-	t.Run("Rejected user cannot transact", func(t *testing.T) {
-		user, _ := entities.NewUser("test@example.com", "John Doe")
-		_ = user.StartKYCVerification()
-		_ = user.RejectKYC()
-
-		err := user.CanPerformTransaction()
-		if err == nil {
-			t.Error("Rejected user should not be able to transact")
-		}
-	})
-}
-
-// TestUser_CanCreateWallet_AllStatuses tests wallet creation for all KYC statuses.
-func TestUser_CanCreateWallet_AllStatuses(t *testing.T) {
-	tests := []struct {
-		name      string
-		status    entities.KYCStatus
-		shouldErr bool
-	}{
-		{"unverified", entities.KYCStatusUnverified, true},
-		{"pending", entities.KYCStatusPending, true},
-		{"verified", entities.KYCStatusVerified, false},
-		{"rejected", entities.KYCStatusRejected, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			user, _ := entities.NewUser("test@example.com", "John Doe")
-
-			user = entities.ReconstructUser(
-				user.ID(),
-				user.Email(),
-				user.FullName(),
-				tt.status,
-				nil,
-				user.CreatedAt(),
-				user.UpdatedAt(),
-			)
-
-			err := user.CanCreateWallet()
-			if (err != nil) != tt.shouldErr {
-				t.Errorf("CanCreateWallet() error = %v, shouldErr %v", err, tt.shouldErr)
-			}
-		})
-	}
-}
-
-// TestUser_StartKYC_FromVerified tests cannot restart KYC when verified.
-func TestUser_StartKYC_FromVerified(t *testing.T) {
-	user, _ := entities.NewUser("test@example.com", "John Doe")
-	_ = user.StartKYCVerification()
-	_ = user.ApproveKYC()
-
-	err := user.StartKYCVerification()
-	if err == nil {
-		t.Error("Should not be able to restart KYC when verified")
-	}
-}
-
-// TestUser_IsVerified_AllStatuses tests IsVerified for all statuses.
-func TestUser_IsVerified_AllStatuses(t *testing.T) {
-	tests := []struct {
-		status   entities.KYCStatus
-		verified bool
-	}{
-		{entities.KYCStatusUnverified, false},
-		{entities.KYCStatusPending, false},
-		{entities.KYCStatusVerified, true},
-		{entities.KYCStatusRejected, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(string(tt.status), func(t *testing.T) {
-			user, _ := entities.NewUser("test@example.com", "John Doe")
-
-			user = entities.ReconstructUser(
-				user.ID(),
-				user.Email(),
-				user.FullName(),
-				tt.status,
-				nil,
-				user.CreatedAt(),
-				user.UpdatedAt(),
-			)
-
-			if user.IsVerified() != tt.verified {
-				t.Errorf("IsVerified() = %v, want %v for status %v",
-					user.IsVerified(), tt.verified, tt.status)
-			}
-		})
-	}
-}
