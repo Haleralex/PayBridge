@@ -22,6 +22,9 @@ vendor/
 # Go workspace file
 go.work
 
+# Claude Code
+.claude/
+
 # IDE - VSCode
 .vscode/*
 !.vscode/settings.json
