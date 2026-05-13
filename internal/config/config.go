@@ -120,12 +120,10 @@ func (c *DatabaseConfig) DSN() string {
 
 // AuthConfig - конфигурация аутентификации.
 type AuthConfig struct {
-	JWTSecret          string        `mapstructure:"jwt_secret"`
-	JWTIssuer          string        `mapstructure:"jwt_issuer"`
-	AccessTokenExpiry  time.Duration `mapstructure:"access_token_expiry"`
-	RefreshTokenExpiry time.Duration `mapstructure:"refresh_token_expiry"`
-	EnableMockAuth     bool          `mapstructure:"enable_mock_auth"`   // Только для development!
-	TelegramBotToken   string        `mapstructure:"telegram_bot_token"` // Telegram bot token for Mini App auth
+	JWTSecret         string        `mapstructure:"jwt_secret"`
+	JWTIssuer         string        `mapstructure:"jwt_issuer"`
+	AccessTokenExpiry time.Duration `mapstructure:"access_token_expiry"`
+	TelegramBotToken  string        `mapstructure:"telegram_bot_token"` // Telegram bot token for Mini App auth
 }
 
 // ============================================
@@ -351,8 +349,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.jwt_secret", "change-me-in-production")
 	v.SetDefault("auth.jwt_issuer", "paybridge")
 	v.SetDefault("auth.access_token_expiry", "15m")
-	v.SetDefault("auth.refresh_token_expiry", "168h") // 7 days
-	v.SetDefault("auth.enable_mock_auth", true)
 	v.SetDefault("auth.telegram_bot_token", "")
 
 	// CORS defaults
@@ -420,7 +416,6 @@ func bindEnvVars(v *viper.Viper) {
 	// Auth
 	_ = v.BindEnv("auth.jwt_secret", "PAYBRIDGE_AUTH_JWT_SECRET", "JWT_SECRET")
 	_ = v.BindEnv("auth.telegram_bot_token", "PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN")
-	_ = v.BindEnv("auth.enable_mock_auth", "PAYBRIDGE_AUTH_ENABLE_MOCK_AUTH")
 
 	// Server
 	_ = v.BindEnv("server.port", "PAYBRIDGE_SERVER_PORT", "PORT")
@@ -463,10 +458,6 @@ func (c *Config) Validate() error {
 
 		if c.Auth.JWTSecret == "" {
 			return fmt.Errorf("JWT secret must be set in production")
-		}
-
-		if c.Auth.EnableMockAuth {
-			return fmt.Errorf("mock auth must be disabled in production")
 		}
 
 		if c.Database.SSLMode == "disable" {
@@ -521,11 +512,9 @@ func Development() *Config {
 			MaxConnIdleTime: 30 * time.Minute,
 		},
 		Auth: AuthConfig{
-			JWTSecret:          "dev-secret-key",
-			JWTIssuer:          "paybridge-dev",
-			AccessTokenExpiry:  15 * time.Minute,
-			RefreshTokenExpiry: 168 * time.Hour,
-			EnableMockAuth:     true,
+			JWTSecret:         "dev-secret-key",
+			JWTIssuer:         "paybridge-dev",
+			AccessTokenExpiry: 15 * time.Minute,
 		},
 		CORS: CORSConfig{
 			AllowedOrigins:   []string{"*"},

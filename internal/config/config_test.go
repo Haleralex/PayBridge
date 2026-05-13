@@ -95,8 +95,7 @@ func TestConfig_Validate_Production_DefaultJWTSecret(t *testing.T) {
 			Environment: "production",
 		},
 		Auth: AuthConfig{
-			JWTSecret:      "change-me-in-production",
-			EnableMockAuth: false,
+			JWTSecret: "change-me-in-production",
 		},
 		Database: DatabaseConfig{
 			Host: "localhost",
@@ -109,28 +108,6 @@ func TestConfig_Validate_Production_DefaultJWTSecret(t *testing.T) {
 	err := cfg.Validate()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "JWT secret must be changed")
-}
-
-func TestConfig_Validate_Production_MockAuthEnabled(t *testing.T) {
-	cfg := &Config{
-		App: AppConfig{
-			Environment: "production",
-		},
-		Auth: AuthConfig{
-			JWTSecret:      "super-secure-secret",
-			EnableMockAuth: true,
-		},
-		Database: DatabaseConfig{
-			Host: "localhost",
-		},
-		Server: ServerConfig{
-			Port: 8080,
-		},
-	}
-
-	err := cfg.Validate()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "mock auth must be disabled")
 }
 
 func TestConfig_Validate_EmptyDatabaseHost(t *testing.T) {
@@ -188,8 +165,7 @@ func TestConfig_Validate_Production_Valid(t *testing.T) {
 			Environment: "production",
 		},
 		Auth: AuthConfig{
-			JWTSecret:      "my-super-secure-production-secret",
-			EnableMockAuth: false,
+			JWTSecret: "my-super-secure-production-secret",
 		},
 		Database: DatabaseConfig{
 			Host:    "db.example.com",
@@ -214,7 +190,6 @@ func TestDevelopment(t *testing.T) {
 	assert.Equal(t, 8080, cfg.Server.Port)
 	assert.Equal(t, "localhost", cfg.Database.Host)
 	assert.Equal(t, 5432, cfg.Database.Port)
-	assert.True(t, cfg.Auth.EnableMockAuth)
 	assert.Equal(t, "debug", cfg.Log.Level)
 }
 
@@ -289,7 +264,6 @@ func TestAuthConfig_TokenExpiry(t *testing.T) {
 	cfg := Development()
 
 	assert.Equal(t, 15*time.Minute, cfg.Auth.AccessTokenExpiry)
-	assert.Equal(t, 168*time.Hour, cfg.Auth.RefreshTokenExpiry) // 7 days
 }
 
 func TestRateLimitConfig(t *testing.T) {

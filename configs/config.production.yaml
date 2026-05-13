@@ -33,8 +33,6 @@ auth:
   jwt_secret: ""      # Set via PAYBRIDGE_AUTH_JWT_SECRET secret
   jwt_issuer: "paybridge"
   access_token_expiry: "15m"
-  refresh_token_expiry: "168h"
-  enable_mock_auth: false
   telegram_bot_token: ""  # Set via PAYBRIDGE_AUTH_TELEGRAM_BOT_TOKEN secret
 
 cors:

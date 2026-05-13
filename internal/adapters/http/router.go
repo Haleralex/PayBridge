@@ -160,10 +160,13 @@ func (b *RouterBuilder) Build() *gin.Engine {
 		SkipPaths: []string{"/health", "/live", "/ready", "/metrics"},
 	}))
 
-	// 5. Rate Limiting (global) — Redis if available, otherwise in-memory
+	// 5. Rate Limiting (global) — Redis if available, otherwise in-memory.
+	// In-memory fallback is per-instance and will not protect across replicas,
+	// so we log loudly to flag the degraded mode in production.
 	if b.config.RedisClient != nil {
 		router.Use(middleware.RedisRateLimit(b.config.RedisClient, middleware.DefaultRateLimitConfig()))
 	} else {
+		b.config.Logger.Warn("rate limit running in in-memory mode — Redis unavailable, limits will not be shared across instances")
 		router.Use(middleware.RateLimit(middleware.DefaultRateLimitConfig()))
 	}
 

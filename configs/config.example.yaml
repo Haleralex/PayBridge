@@ -32,8 +32,6 @@ auth:
   jwt_secret: "change-me-in-production"  # Generate strong secret!
   jwt_issuer: "paybridge"
   access_token_expiry: "15m"
-  refresh_token_expiry: "168h"  # 7 days
-  enable_mock_auth: true  # ONLY for development!
   telegram_bot_token: ""  # Set via TELEGRAM_BOT_TOKEN env var or get from @BotFather
 
 cors:

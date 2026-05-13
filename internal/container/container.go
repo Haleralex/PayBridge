@@ -426,11 +426,7 @@ func (c *Container) initHTTPServer() {
 		c.tokenBlacklist, // nil if Redis unavailable
 	)
 
-	if c.config.Auth.EnableMockAuth {
-		c.logger.Warn("Mock auth enabled — development mode, real JWT validation still active")
-	} else {
-		c.logger.Info("Using real JWT authentication")
-	}
+	c.logger.Info("Using real JWT authentication")
 
 	// Router Config
 	routerConfig := &http.RouterConfig{
