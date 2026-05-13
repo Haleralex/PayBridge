@@ -79,7 +79,6 @@ type Container struct {
 	// Use Cases
 	createUserUC             *user.CreateUserUseCase
 	getUserUC                *user.GetUserUseCase
-	listUsersUC              *user.ListUsersUseCase
 	createWalletUC           *wallet.CreateWalletUseCase
 	creditWalletUC           *wallet.CreditWalletUseCase
 	debitWalletUC            *wallet.DebitWalletUseCase
@@ -274,7 +273,6 @@ func (c *Container) initCQRS() {
 
 	// Register Query Handlers
 	cqrs.RegisterQueryHandler[dtos.GetUserQuery, *dtos.UserDTO](c.queryBus, c.getUserUC)
-	cqrs.RegisterQueryHandler[dtos.ListUsersQuery, *dtos.UserListDTO](c.queryBus, c.listUsersUC)
 	cqrs.RegisterQueryHandler[dtos.GetWalletQuery, *dtos.WalletDTO](c.queryBus, c.getWalletUC)
 	cqrs.RegisterQueryHandler[dtos.ListWalletsQuery, *dtos.WalletListDTO](c.queryBus, c.listWalletsUC)
 	cqrs.RegisterQueryHandler[dtos.GetTransactionQuery, *dtos.TransactionDTO](c.queryBus, c.getTransactionUC)
@@ -361,7 +359,6 @@ func (c *Container) initUseCases() {
 	// User Use Cases
 	c.createUserUC = user.NewCreateUserUseCase(c.userRepo, c.eventPublisher, c.uow)
 	c.getUserUC = user.NewGetUserUseCase(c.userRepo)
-	c.listUsersUC = user.NewListUsersUseCase(c.userRepo)
 
 	// Wallet Use Cases
 	c.createWalletUC = wallet.NewCreateWalletUseCase(c.userRepo, c.walletRepo, c.eventPublisher, c.uow)

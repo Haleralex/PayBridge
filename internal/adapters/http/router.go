@@ -10,7 +10,9 @@ package http
 
 import (
 	"log/slog"
+	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
@@ -234,7 +236,6 @@ func (b *RouterBuilder) Build() *gin.Engine {
 			userHandler := handlers.NewUserHandler(b.commandBus, b.queryBus)
 			users := protectedGroup.Group("/users")
 			{
-				users.GET("", userHandler.ListUsers)
 				users.GET("/:id", userHandler.GetUser)
 			}
 		}
@@ -297,13 +298,23 @@ func (b *RouterBuilder) Build() *gin.Engine {
 	// Static Files (Webapp / Telegram Mini App)
 	// ============================================
 
-	// Serve webapp with no-cache headers
+	// Serve webapp with no-cache headers.
+	// Path traversal protection: every resolved path is verified to live
+	// under the webapp directory before being served.
+	webappRoot, _ := filepath.Abs("./webapp")
 	serveWebapp := func(c *gin.Context) {
 		fp := c.Param("filepath")
 		if fp == "/" || fp == "" {
 			fp = "/index.html"
 		}
-		fullPath := filepath.Join("./webapp", fp)
+
+		// Resolve absolute path and ensure it stays inside webappRoot.
+		fullPath, err := filepath.Abs(filepath.Join(webappRoot, filepath.Clean("/"+fp)))
+		if err != nil || !strings.HasPrefix(fullPath, webappRoot+string(filepath.Separator)) && fullPath != webappRoot {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
 		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 		c.Header("Pragma", "no-cache")
 		c.Header("Expires", "0")

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
 	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	domainerrors "github.com/Haleralex/wallethub/internal/domain/errors"
@@ -93,6 +94,15 @@ func setupUserTestRouter(handler *UserHandler) *gin.Engine {
 	})
 
 	return router
+}
+
+// withAuth attaches a mock authenticated user to the request context.
+// Used to satisfy self-only checks in GetUser without spinning up real JWT auth.
+func withAuth(userID string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(middleware.AuthUserIDKey, userID)
+		c.Next()
+	}
 }
 
 // ============================================
@@ -233,6 +243,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
+		router.Use(withAuth(userID))
 		router.GET("/users/:id", handler.GetUser)
 
 		req := httptest.NewRequest(http.MethodGet, "/users/"+userID, nil)
@@ -247,6 +258,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 		cmdBus, qBus := buildUserBuses(nil, &MockGetUserUseCase{}, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
+		router.Use(withAuth(uuid.New().String()))
 		router.GET("/users/:id", handler.GetUser)
 
 		req := httptest.NewRequest(http.MethodGet, "/users/not-a-uuid", nil)
@@ -255,6 +267,21 @@ func TestUserHandler_GetUser(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ForbiddenWhenAccessingOtherUser", func(t *testing.T) {
+		cmdBus, qBus := buildUserBuses(nil, &MockGetUserUseCase{}, nil)
+		handler := NewUserHandler(cmdBus, qBus)
+		router := setupUserTestRouter(handler)
+		router.Use(withAuth(uuid.New().String())) // authenticated as someone else
+		router.GET("/users/:id", handler.GetUser)
+
+		req := httptest.NewRequest(http.MethodGet, "/users/"+uuid.New().String(), nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -268,6 +295,7 @@ func TestUserHandler_GetUser(t *testing.T) {
 		cmdBus, qBus := buildUserBuses(nil, mockUseCase, nil)
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
+		router.Use(withAuth(userID))
 		router.GET("/users/:id", handler.GetUser)
 
 		req := httptest.NewRequest(http.MethodGet, "/users/"+userID, nil)
@@ -279,91 +307,20 @@ func TestUserHandler_GetUser(t *testing.T) {
 	})
 
 	t.Run("NoHandlerRegistered", func(t *testing.T) {
+		userID := uuid.New().String()
 		cmdBus := cqrs.NewCommandBus()
 		qBus := cqrs.NewQueryBus()
 		handler := NewUserHandler(cmdBus, qBus)
 		router := setupUserTestRouter(handler)
+		router.Use(withAuth(userID))
 		router.GET("/users/:id", handler.GetUser)
 
-		req := httptest.NewRequest(http.MethodGet, "/users/"+uuid.New().String(), nil)
+		req := httptest.NewRequest(http.MethodGet, "/users/"+userID, nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
-}
-
-// ============================================
-// Test ListUsers Handler
-// ============================================
-
-func TestUserHandler_ListUsers(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		mockUseCase := &MockListUsersUseCase{
-			ExecuteFn: func(ctx context.Context, query dtos.ListUsersQuery) (*dtos.UserListDTO, error) {
-				return &dtos.UserListDTO{
-					Users: []dtos.UserDTO{
-						{ID: uuid.New().String(), Email: "user1@test.com"},
-						{ID: uuid.New().String(), Email: "user2@test.com"},
-					},
-					TotalCount: 2,
-				}, nil
-			},
-		}
-
-		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase)
-		handler := NewUserHandler(cmdBus, qBus)
-		router := setupUserTestRouter(handler)
-		router.GET("/users", handler.ListUsers)
-
-		req := httptest.NewRequest(http.MethodGet, "/users?page=1&per_page=20", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response map[string]interface{}
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NotNil(t, response["meta"])
-	})
-
-	t.Run("NoHandlerRegistered", func(t *testing.T) {
-		cmdBus := cqrs.NewCommandBus()
-		qBus := cqrs.NewQueryBus()
-		handler := NewUserHandler(cmdBus, qBus)
-		router := setupUserTestRouter(handler)
-		router.GET("/users", handler.ListUsers)
-
-		req := httptest.NewRequest(http.MethodGet, "/users", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
-
-	t.Run("CustomPagination", func(t *testing.T) {
-		mockUseCase := &MockListUsersUseCase{
-			ExecuteFn: func(ctx context.Context, query dtos.ListUsersQuery) (*dtos.UserListDTO, error) {
-				assert.Equal(t, 20, query.Offset)
-				assert.Equal(t, 10, query.Limit)
-				return &dtos.UserListDTO{Users: []dtos.UserDTO{}, TotalCount: 0}, nil
-			},
-		}
-
-		cmdBus, qBus := buildUserBuses(nil, nil, mockUseCase)
-		handler := NewUserHandler(cmdBus, qBus)
-		router := setupUserTestRouter(handler)
-		router.GET("/users", handler.ListUsers)
-
-		req := httptest.NewRequest(http.MethodGet, "/users?page=3&per_page=10", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }
 
@@ -379,7 +336,7 @@ func TestUserHandler_RegisterRoutes(t *testing.T) {
 	cmdBus, qBus := buildUserBuses(
 		&MockCreateUserUseCase{},
 		&MockGetUserUseCase{},
-		&MockListUsersUseCase{},
+		nil,
 	)
 
 	handler := NewUserHandler(cmdBus, qBus)
@@ -387,5 +344,5 @@ func TestUserHandler_RegisterRoutes(t *testing.T) {
 	handler.RegisterRoutes(apiGroup)
 
 	routes := router.Routes()
-	require.GreaterOrEqual(t, len(routes), 3)
+	require.GreaterOrEqual(t, len(routes), 2)
 }

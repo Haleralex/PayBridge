@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Haleralex/wallethub/internal/adapters/http/common"
+	"github.com/Haleralex/wallethub/internal/adapters/http/middleware"
 	"github.com/Haleralex/wallethub/internal/application/cqrs"
 	"github.com/Haleralex/wallethub/internal/application/dtos"
 	"github.com/gin-gonic/gin"
@@ -103,10 +104,22 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	if _, err := uuid.Parse(params.ID); err != nil {
+	requestedID, err := uuid.Parse(params.ID)
+	if err != nil {
 		common.ValidationErrorResponse(c, []common.FieldError{
 			{Field: "id", Message: "Invalid UUID format", Code: "uuid"},
 		})
+		return
+	}
+
+	// Self-only: users can only fetch their own profile.
+	authUserID := middleware.GetAuthUserID(c)
+	if authUserID == uuid.Nil {
+		common.UnauthorizedResponse(c, "User not authenticated")
+		return
+	}
+	if requestedID != authUserID {
+		common.ForbiddenResponse(c, "You can only access your own profile")
 		return
 	}
 
@@ -121,48 +134,15 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 	common.Success(c, http.StatusOK, result)
 }
 
-// ListUsers возвращает список пользователей с пагинацией.
-//
-// @Summary List users
-// @Description Get paginated list of users
-// @Tags Users
-// @Accept json
-// @Produce json
-// @Param page query int false "Page number" default(1)
-// @Param per_page query int false "Items per page" default(20) maximum(100)
-// @Success 200 {object} common.APIResponse{data=dtos.UserListDTO}
-// @Failure 400 {object} common.APIResponse
-// @Failure 500 {object} common.APIResponse
-// @Router /api/v1/users [get]
-func (h *UserHandler) ListUsers(c *gin.Context) {
-	pagination := ParsePagination(c)
-
-	query := dtos.ListUsersQuery{
-		Offset: pagination.Offset(),
-		Limit:  pagination.PerPage,
-	}
-
-	result, err := cqrs.DispatchQuery[dtos.ListUsersQuery, *dtos.UserListDTO](h.queryBus, c.Request.Context(), query)
-	if err != nil {
-		common.HandleDomainError(c, err)
-		return
-	}
-
-	meta := BuildMeta(pagination, result.TotalCount)
-	common.SuccessWithMeta(c, http.StatusOK, result, meta)
-}
-
 // RegisterRoutes регистрирует маршруты для UserHandler.
 //
 // Routes:
 // - POST   /users          - Create user
-// - GET    /users          - List users
-// - GET    /users/:id      - Get user by ID
+// - GET    /users/:id      - Get user by ID (self only)
 func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	users := router.Group("/users")
 	{
 		users.POST("", h.CreateUser)
-		users.GET("", h.ListUsers)
 		users.GET("/:id", h.GetUser)
 	}
 }
