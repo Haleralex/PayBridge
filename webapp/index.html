@@ -674,7 +674,7 @@
                     const isPositive = isCredit || isIncomingTransfer || isIncomingExchange;
                     const icon = isCredit ? '+' : isIncomingTransfer ? '↓' : isExchange ? '💱' : tx.type === 'TRANSFER' ? '↑' : '-';
                     const typeLabel = isExchange ? (tx.description || 'Currency exchange') :
-                                     isIncomingTransfer ? 'Incoming transfer' :
+                                     isIncomingTransfer ? (tx.description || 'Incoming transfer') :
                                      (tx.description || tx.type);
 
                     return `

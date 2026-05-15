@@ -14,6 +14,9 @@ primary_region = "fra"
   PAYBRIDGE_NATS_URL = "nats://paybridge-nats.internal:4222"
   PAYBRIDGE_TELEMETRY_ENABLED = "true"
 
+[[restart]]
+  policy = "always"
+
 [[vm]]
   memory = "256mb"
   cpu_kind = "shared"
