@@ -94,6 +94,12 @@
             color: var(--tg-theme-button-text-color);
         }
 
+        .wallet-chip.add-wallet {
+            border: 1px dashed var(--tg-theme-hint-color);
+            background: transparent;
+            color: var(--tg-theme-hint-color);
+        }
+
         /* Action Buttons */
         .actions {
             display: grid;
@@ -442,6 +448,23 @@
         </div>
     </div>
 
+    <!-- Create Wallet Modal -->
+    <div class="modal-overlay" id="createWalletOverlay" onclick="closeCreateWalletModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>New Wallet</h2>
+                <button class="modal-close" onclick="closeCreateWalletModal()">&times;</button>
+            </div>
+            <form id="createWalletForm" onsubmit="createWallet(event)">
+                <div class="form-group">
+                    <label>Currency</label>
+                    <select id="newWalletCurrency"></select>
+                </div>
+                <button type="submit" class="submit-btn" id="createWalletBtn">Create</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
@@ -623,7 +646,9 @@
                      onclick="selectWallet(wallets.find(x => x.id === '${w.id}'))">
                     ${w.currency_code}
                 </div>
-            `).join('');
+            `).join('') + `
+                <div class="wallet-chip add-wallet" onclick="openCreateWalletModal()">+ New</div>
+            `;
         }
 
         // Select Wallet
@@ -639,6 +664,7 @@
             if (!currentWallet) return;
             const symbol = currentWallet.currency_code === 'USD' ? '$' :
                           currentWallet.currency_code === 'EUR' ? '€' :
+                          currentWallet.currency_code === 'GBP' ? '£' :
                           currentWallet.currency_code === 'RUB' ? '₽' : '';
             const balance = parseBalance(currentWallet.available_balance);
             document.getElementById('balance').textContent = `${symbol}${balance.toFixed(2)}`;
@@ -748,6 +774,52 @@
             if (event && event.target !== event.currentTarget) return;
             document.getElementById('modalOverlay').classList.remove('active');
             document.getElementById('operationForm').reset();
+        }
+
+        // Currencies supported by the backend for new wallets
+        const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP'];
+
+        function openCreateWalletModal() {
+            const owned = new Set(wallets.map(w => w.currency_code));
+            const available = SUPPORTED_CURRENCIES.filter(c => !owned.has(c));
+            const select = document.getElementById('newWalletCurrency');
+            const btn = document.getElementById('createWalletBtn');
+            if (available.length === 0) {
+                select.innerHTML = '<option value="">You already have all currencies</option>';
+                btn.disabled = true;
+            } else {
+                select.innerHTML = available.map(c => `<option value="${c}">${c}</option>`).join('');
+                btn.disabled = false;
+            }
+            document.getElementById('createWalletOverlay').classList.add('active');
+        }
+
+        function closeCreateWalletModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('createWalletOverlay').classList.remove('active');
+        }
+
+        async function createWallet(event) {
+            event.preventDefault();
+            const btn = document.getElementById('createWalletBtn');
+            const currency = document.getElementById('newWalletCurrency').value;
+            if (!currency) return;
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+            try {
+                await api('/wallets', {
+                    method: 'POST',
+                    body: JSON.stringify({ currency_code: currency })
+                });
+                closeCreateWalletModal();
+                showToast(`${currency} wallet created`);
+                await loadWallets();
+            } catch (err) {
+                showToast('Failed to create wallet: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create';
+            }
         }
 
         // Submit Operation
