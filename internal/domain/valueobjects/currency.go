@@ -26,6 +26,7 @@ var (
 	USD  = Currency{code: "USD"}
 	EUR  = Currency{code: "EUR"}
 	GBP  = Currency{code: "GBP"}
+	RUB  = Currency{code: "RUB"}
 	BTC  = Currency{code: "BTC"} // Crypto support
 	ETH  = Currency{code: "ETH"}
 	USDT = Currency{code: "USDT"}
@@ -37,6 +38,7 @@ var supportedCurrencies = map[string]bool{
 	"USD":  true,
 	"EUR":  true,
 	"GBP":  true,
+	"RUB":  true,
 	"BTC":  true,
 	"ETH":  true,
 	"USDT": true,
