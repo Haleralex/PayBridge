@@ -17,6 +17,7 @@ func TestNewCurrency_Success(t *testing.T) {
 		{name: "USD", code: "USD", want: "USD"},
 		{name: "EUR", code: "EUR", want: "EUR"},
 		{name: "GBP", code: "GBP", want: "GBP"},
+		{name: "RUB", code: "RUB", want: "RUB"},
 		{name: "BTC", code: "BTC", want: "BTC"},
 		{name: "ETH", code: "ETH", want: "ETH"},
 		{name: "USDT", code: "USDT", want: "USDT"},
@@ -42,7 +43,6 @@ func TestNewCurrency_Invalid(t *testing.T) {
 		"XXX",
 		"INVALID",
 		"",
-		"RUB",
 		"JPY",
 		"123",
 	}
